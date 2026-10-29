@@ -11,24 +11,19 @@ import {
   VolumeX, 
   Lock, 
   Unlock, 
-  Eye,
-  EyeOff,
+  Eye, 
+  EyeOff, 
   Plus, 
   Scissors, 
-  Layers,
-  Magnet,
-  Trash2,
-  Copy,
-  ChevronLeft,
-  ChevronRight,
-  RotateCcw,
-  Sparkles,
-  Music,
-  Video,
-  Type,
-  Unlink,
-  Link,
-  ChevronDown
+  Magnet, 
+  Trash2, 
+  Copy, 
+  ChevronLeft, 
+  ChevronRight, 
+  RotateCcw, 
+  Music, 
+  Video, 
+  Unlink 
 } from 'lucide-react';
 
 export const Timeline: React.FC = () => {
@@ -41,6 +36,7 @@ export const Timeline: React.FC = () => {
     setCurrentTime, 
     setZoomLevel, 
     selectClip, 
+    addClipToTrack,
     addTrack,
     removeTrack,
     toggleTrackVisibility,
@@ -555,6 +551,37 @@ export const Timeline: React.FC = () => {
               <div 
                 key={track.id} 
                 data-track-id={track.id}
+                onDragOver={(e) => {
+                  if (e.dataTransfer.types.includes('application/kyvora-asset-id')) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                  }
+                }}
+                onDrop={(e) => {
+                  const assetId = e.dataTransfer.getData('application/kyvora-asset-id');
+                  if (assetId) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const asset = project.assets.find(a => a.id === assetId);
+                    if (asset) {
+                      const trackRect = e.currentTarget.getBoundingClientRect();
+                      const clickX = e.clientX - trackRect.left;
+                      const dropSec = Math.max(0, clickX / zoomLevel);
+                      const clipId = `clip_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+                      addClipToTrack(track.id, {
+                        assetId: asset.id,
+                        name: asset.name,
+                        startInTimelineSeconds: dropSec,
+                        durationSeconds: asset.durationInSeconds,
+                        sourceStartSeconds: 0,
+                        color: asset.type === 'video' ? '#0066FF' : asset.type === 'audio' ? '#10B981' : '#8B5CF6',
+                        effects: []
+                      }, clipId);
+                      selectClip(clipId);
+                      setCurrentTime(dropSec);
+                    }
+                  }
+                }}
                 className={`track-lane h-16 relative transition-colors ${
                   track.isVisible === false ? 'opacity-40 bg-slate-950/80' : ''
                 } ${

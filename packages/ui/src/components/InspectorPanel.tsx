@@ -4,24 +4,16 @@ import {
   formatTimecode,
   ClipEffect,
   ColorAdjustmentEffect,
-  ColorGradingEffect,
-  GrayscaleEffect,
-  SepiaEffect,
-  TextOverlayEffect,
-  FadeEffect,
   BlurEffect,
-  VignetteEffect,
   FilmGrainEffect,
   PixelateEffect,
   SharpenEffect,
-  ClipTransition,
   Keyframe,
   AnimatableProperty
 } from '@kyvora/editor-core';
 import { 
   Sliders, 
   Settings2, 
-  Layers, 
   Info, 
   Sparkles, 
   Trash2, 
@@ -31,7 +23,6 @@ import {
   VolumeX,
   Type,
   Move,
-  Film,
   Zap,
   Clock,
   Plus
@@ -44,7 +35,6 @@ export const InspectorPanel: React.FC = () => {
     selectedClipId, 
     selectedAssetId, 
     updateProjectName,
-    updateProjectSettings,
     addEffectToClip,
     updateEffectInClip,
     removeEffectFromClip,
@@ -736,13 +726,16 @@ export const InspectorPanel: React.FC = () => {
               <select
                 value={selectedClip.transitions?.find(t => t.position === 'start')?.type || ''}
                 onChange={(e) => {
+                  const existing = selectedClip.transitions?.find(t => t.position === 'start');
                   if (e.target.value) {
                     addTransitionToClip(selectedClip.id, {
-                      id: `tr_in_${Date.now()}`,
+                      id: existing?.id || `tr_in_${Date.now()}`,
                       type: e.target.value as any,
                       durationSeconds: 1.0,
                       position: 'start'
                     });
+                  } else if (existing) {
+                    removeTransitionFromClip(selectedClip.id, existing.id);
                   }
                 }}
                 className="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 text-xs"
@@ -762,13 +755,16 @@ export const InspectorPanel: React.FC = () => {
               <select
                 value={selectedClip.transitions?.find(t => t.position === 'end')?.type || ''}
                 onChange={(e) => {
+                  const existing = selectedClip.transitions?.find(t => t.position === 'end');
                   if (e.target.value) {
                     addTransitionToClip(selectedClip.id, {
-                      id: `tr_out_${Date.now()}`,
+                      id: existing?.id || `tr_out_${Date.now()}`,
                       type: e.target.value as any,
                       durationSeconds: 1.0,
                       position: 'end'
                     });
+                  } else if (existing) {
+                    removeTransitionFromClip(selectedClip.id, existing.id);
                   }
                 }}
                 className="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 text-xs"

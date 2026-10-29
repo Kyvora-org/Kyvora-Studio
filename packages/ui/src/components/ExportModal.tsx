@@ -226,7 +226,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
               throw new Error(`Error en preparación de medios: No se pudo recuperar el binario del activo "${asset.name}" (ID: ${asset.id}). Causa: ${reason}.`);
             }
 
-            const byteLength = stored.data.byteLength || stored.data.length || 0;
+            const byteLength = stored.data.byteLength || (stored.data as any).length || 0;
             appendLog('staging_media', `Binario recuperado para "${asset.name}": ${byteLength} bytes. Creando archivo temporal para FFmpeg...`);
 
             const sanitizedName = asset.name.replace(/[^a-zA-Z0-9_.-]/g, '_');

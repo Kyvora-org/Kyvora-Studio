@@ -74,3 +74,4 @@ Esta versión representa la mayor evolución de **Kyvora Studio**, transformando
 #### Verificación y Pruebas
 - 73 pruebas automatizadas ejecutadas y superadas con éxito (100% pass rate).
 - Pruebas reales de codificación de vídeo y decodificación ejecutadas con FFmpeg 7 y validadas con FFprobe en entorno de desarrollo.
+

@@ -6,7 +6,7 @@ export type XtpMediaMode = 'embedded' | 'referenced' | 'hybrid';
 export interface XtpMediaEntry {
   assetId: string;
   name: string;
-  type: 'video' | 'audio' | 'image';
+  type: 'video' | 'audio' | 'image' | 'text';
   isEmbedded: boolean;
   archivePath?: string;    // e.g., 'media/asset-1.mp4' if embedded
   externalPath?: string;   // e.g., 'C:/Videos/intro.mp4' if referenced

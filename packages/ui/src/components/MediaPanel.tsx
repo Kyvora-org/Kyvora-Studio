@@ -12,18 +12,14 @@ import {
   Music, 
   Image as ImageIcon, 
   PlusCircle, 
-  HardDrive,
-  UploadCloud,
-  AlertTriangle,
-  CheckCircle2,
-  Loader2,
-  Search,
-  Grid,
-  List,
-  FolderOpen,
-  RefreshCw,
-  Trash2,
-  Film
+  UploadCloud, 
+  AlertTriangle, 
+  CheckCircle2, 
+  Search, 
+  Grid, 
+  List, 
+  FolderOpen, 
+  Trash2 
 } from 'lucide-react';
 import { isTauriEnvironment, invokeTauriCommand, showOpenMediaDialog } from '../utils/fileDialogs';
 
@@ -35,8 +31,9 @@ export const MediaPanel: React.FC = () => {
     addAsset, 
     removeAsset,
     addClipToTrack,
-    relinkMediaAsset,
-    missingMediaList
+    selectClip,
+    setCurrentTime,
+    updateProjectDuration
   } = useEditorStore();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -60,11 +57,50 @@ export const MediaPanel: React.FC = () => {
     });
   }, [project.assets, activeTab, searchQuery]);
 
+  // Coloca un activo en la línea de tiempo y lo selecciona para edición inmediata
+  const addAssetToTimeline = (asset: MediaAsset, customStartSeconds?: number) => {
+    const targetTrack = project.tracks.find(t => t.type === (asset.type === 'audio' ? 'audio' : 'video')) || project.tracks[0];
+    if (!targetTrack) return;
+
+    let startTime = customStartSeconds;
+    if (startTime === undefined) {
+      const lastClip = targetTrack.clips[targetTrack.clips.length - 1];
+      startTime = lastClip ? (lastClip.startInTimelineSeconds + lastClip.durationSeconds) : 0;
+    }
+
+    const clipId = `clip_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    addClipToTrack(targetTrack.id, {
+      assetId: asset.id,
+      name: asset.name,
+      startInTimelineSeconds: startTime,
+      durationSeconds: asset.durationInSeconds,
+      sourceStartSeconds: 0,
+      color: asset.type === 'video' ? '#0066FF' : asset.type === 'audio' ? '#10B981' : '#8B5CF6',
+      effects: []
+    }, clipId);
+
+    selectClip(clipId);
+    setCurrentTime(startTime);
+    if (startTime + asset.durationInSeconds > project.durationSeconds) {
+      updateProjectDuration(Math.ceil(startTime + asset.durationInSeconds + 5));
+    }
+  };
+
+  // Añade un activo y, si la línea de tiempo está vacía, lo ubica de inmediato en Track 1
+  const addAssetAndAutoPlaceOnTimeline = (asset: MediaAsset) => {
+    addAsset(asset);
+    selectAsset(asset.id);
+
+    const isTimelineEmpty = project.tracks.every(t => t.clips.length === 0);
+    if (isTimelineEmpty) {
+      addAssetToTimeline(asset, 0);
+    }
+  };
+
   // Procesamiento en entorno Web o drag-and-drop con File API
   const processFileList = async (files: FileList | File[]) => {
     setErrorMessage(null);
     setInfoMessage(null);
-    let errorCount = 0;
     let addedCount = 0;
 
     for (let i = 0; i < files.length; i++) {
@@ -102,10 +138,9 @@ export const MediaPanel: React.FC = () => {
           }
         );
 
-        addAsset(asset);
+        addAssetAndAutoPlaceOnTimeline(asset);
         addedCount++;
       } catch (err) {
-        errorCount++;
         setErrorMessage(`"${file.name}": ${(err as Error).message}`);
       }
     }
@@ -166,7 +201,7 @@ export const MediaPanel: React.FC = () => {
     }
   };
 
-  // Función núcleo de importación rápida por rutas de archivo
+  // Función núcleo de importación rápida por rutas de archivo en escritorio
   const importNativePaths = async (paths: string[]) => {
     let imported = 0;
     for (let idx = 0; idx < paths.length; idx++) {
@@ -225,7 +260,7 @@ export const MediaPanel: React.FC = () => {
           createdAt: new Date().toISOString()
         };
 
-        addAsset(asset);
+        addAssetAndAutoPlaceOnTimeline(asset);
         imported++;
       } catch (err) {
         setErrorMessage(`"${fileName}": ${(err as Error).message}`);
@@ -250,31 +285,35 @@ export const MediaPanel: React.FC = () => {
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      // En Tauri de escritorio, extraer rutas directas para evitar cargar memoria RAM
+      if (isTauriEnvironment()) {
+        const paths: string[] = [];
+        for (let i = 0; i < e.dataTransfer.files.length; i++) {
+          const p = (e.dataTransfer.files[i] as any).path;
+          if (p) paths.push(p);
+        }
+        if (paths.length > 0) {
+          await importNativePaths(paths);
+          return;
+        }
+      }
+
+      // En Web o cuando no hay path absoluto
       processFileList(e.dataTransfer.files);
     }
   };
 
-  const handleAddSampleClip = (asset: MediaAsset) => {
-    const targetTrack = project.tracks.find(t => t.type === (asset.type === 'audio' ? 'audio' : 'video')) || project.tracks[0];
-    if (!targetTrack) return;
-
-    const lastClip = targetTrack.clips[targetTrack.clips.length - 1];
-    const startTime = lastClip ? (lastClip.startInTimelineSeconds + lastClip.durationSeconds) : 0;
-
-    addClipToTrack(targetTrack.id, {
-      assetId: asset.id,
-      name: asset.name,
-      startInTimelineSeconds: startTime,
-      durationSeconds: asset.durationInSeconds,
-      sourceStartSeconds: 0,
-      color: asset.type === 'video' ? '#0066FF' : asset.type === 'audio' ? '#10B981' : '#8B5CF6',
-      effects: []
-    });
+  // Manejador del input de archivos oculto
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processFileList(e.target.files);
+    }
   };
 
   return (
@@ -406,9 +445,14 @@ export const MediaPanel: React.FC = () => {
               return (
                 <div
                   key={asset.id}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('application/kyvora-asset-id', asset.id);
+                    e.dataTransfer.setData('text/plain', asset.id);
+                  }}
                   onClick={() => selectAsset(asset.id)}
-                  onDoubleClick={() => handleAddSampleClip(asset)}
-                  className={`group relative rounded-lg border p-1.5 flex flex-col gap-1 cursor-pointer transition-all ${
+                  onDoubleClick={() => addAssetToTimeline(asset)}
+                  className={`group relative rounded-lg border p-1.5 flex flex-col gap-1 cursor-grab active:cursor-grabbing transition-all ${
                     isSelected
                       ? 'border-blue-500 bg-blue-950/30 shadow-md ring-1 ring-blue-500/50'
                       : 'border-slate-800 bg-slate-950/40 hover:border-slate-700 hover:bg-slate-900/60'
@@ -438,7 +482,7 @@ export const MediaPanel: React.FC = () => {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleAddSampleClip(asset);
+                        addAssetToTimeline(asset);
                       }}
                       title="Insertar en la línea de tiempo"
                       className="absolute inset-0 bg-blue-600/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -463,6 +507,19 @@ export const MediaPanel: React.FC = () => {
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
+
+                  {/* Botón de acción rápida visible */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addAssetToTimeline(asset);
+                    }}
+                    className="w-full py-1 mt-0.5 rounded bg-slate-900 hover:bg-blue-600 text-slate-300 hover:text-white text-[10px] font-medium flex items-center justify-center gap-1 border border-slate-800 transition-colors"
+                  >
+                    <PlusCircle className="w-3 h-3" />
+                    <span>Añadir a pista</span>
+                  </button>
                 </div>
               );
             })}
@@ -474,9 +531,14 @@ export const MediaPanel: React.FC = () => {
               return (
                 <div
                   key={asset.id}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('application/kyvora-asset-id', asset.id);
+                    e.dataTransfer.setData('text/plain', asset.id);
+                  }}
                   onClick={() => selectAsset(asset.id)}
-                  onDoubleClick={() => handleAddSampleClip(asset)}
-                  className={`group px-2 py-1.5 rounded-md border flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                  onDoubleClick={() => addAssetToTimeline(asset)}
+                  className={`group px-2 py-1.5 rounded-md border flex items-center justify-between gap-2 cursor-grab active:cursor-grabbing transition-colors ${
                     isSelected
                       ? 'border-blue-500 bg-blue-950/40 text-white'
                       : 'border-slate-800/80 bg-slate-950/30 text-slate-300 hover:bg-slate-900 hover:border-slate-700'
@@ -501,12 +563,13 @@ export const MediaPanel: React.FC = () => {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleAddSampleClip(asset);
+                        addAssetToTimeline(asset);
                       }}
-                      className="p-1 rounded hover:bg-blue-600 hover:text-white text-slate-400 transition-colors"
+                      className="px-2 py-0.5 rounded bg-blue-600/80 hover:bg-blue-500 text-white text-[10px] font-medium flex items-center gap-1 transition-colors"
                       title="Añadir a la línea de tiempo"
                     >
-                      <PlusCircle className="w-3.5 h-3.5" />
+                      <PlusCircle className="w-3 h-3" />
+                      <span>Añadir</span>
                     </button>
                     <button
                       type="button"

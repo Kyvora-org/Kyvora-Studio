@@ -29,8 +29,7 @@ import {
   AlertTriangle, 
   ZoomIn, 
   ZoomOut,
-  SlidersHorizontal,
-  Sparkles
+  SlidersHorizontal
 } from 'lucide-react';
 import { isTauriEnvironment, getAssetSrc } from '../utils/fileDialogs';
 
@@ -79,6 +78,15 @@ export const PreviewViewport: React.FC = () => {
         activeAsset = project.assets.find(a => a.id === found.assetId) || null;
         break;
       }
+    }
+  }
+
+  // Monitor de Origen: Si no hay clip en la línea de tiempo pero hay un activo seleccionado en la biblioteca
+  const selectedAssetId = useEditorStore(state => state.selectedAssetId);
+  if (!activeAsset && selectedAssetId) {
+    const candidate = project.assets.find(a => a.id === selectedAssetId);
+    if (candidate && (candidate.type === 'video' || candidate.type === 'image')) {
+      activeAsset = candidate;
     }
   }
 
@@ -935,8 +943,8 @@ export const PreviewViewport: React.FC = () => {
             </div>
           )}
 
-          {/* PANTALLA DE ESPERA / SIN CLIP ACTIVO */}
-          {!activeVideoClip && (
+          {/* PANTALLA DE ESPERA / SIN CLIP ACTIVO NI MEDIO SELECCIONADO */}
+          {!activeVideoClip && !activeAsset && (
             <div className="z-10 text-center p-6 space-y-2 pointer-events-none">
               <div className="w-12 h-12 rounded-full bg-blue-500/10 border border-blue-500/20 mx-auto flex items-center justify-center text-blue-400">
                 <MonitorPlay className="w-6 h-6" />
@@ -945,7 +953,7 @@ export const PreviewViewport: React.FC = () => {
                 Monitor de Vista Previa
               </h3>
               <p className="text-xs text-slate-500 max-w-sm">
-                Coloca el cabezal de reproducción sobre un clip de video o agrega medios a la línea de tiempo para comenzar.
+                Importa un archivo de video o selecciónalo en la biblioteca para comenzar a editarlo.
               </p>
             </div>
           )}

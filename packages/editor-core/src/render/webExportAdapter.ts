@@ -160,7 +160,7 @@ export class WebExportAdapter {
           if (seg.textOverlay && seg.textOverlay.text) {
             ctx.filter = 'none';
             ctx.font = `bold ${seg.textOverlay.fontSize || 32}px sans-serif`;
-            ctx.fillStyle = seg.textOverlay.color || '#ffffff';
+            ctx.fillStyle = seg.textOverlay.textColor || (seg.textOverlay as any).color || '#ffffff';
             const textX = (canvas.width * (seg.textOverlay.positionX || 50)) / 100;
             const textY = (canvas.height * (seg.textOverlay.positionY || 50)) / 100;
             ctx.textAlign = 'center';
