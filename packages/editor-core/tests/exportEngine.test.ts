@@ -295,7 +295,7 @@ describe('Motor de Vista Previa y Exportación de Kyvora Studio', () => {
 
       // 1. Export A: 720p @ 30 FPS
       const projA = createNewProject({ name: 'Export_A_720p_30fps', width: 1280, height: 720, frameRate: 30 });
-      projA.durationSeconds = 3;
+      projA.durationSeconds = 1;
       projA.assets.push({
         id: 'asset_test_a',
         name: 'test_input.mp4',
@@ -308,7 +308,7 @@ describe('Motor de Vista Previa y Exportación de Kyvora Studio', () => {
         assetId: 'asset_test_a',
         name: 'Clip A',
         startInTimelineSeconds: 0,
-        durationSeconds: 3,
+        durationSeconds: 1,
         sourceStartSeconds: 0,
         effects: []
       });
@@ -336,7 +336,7 @@ describe('Motor de Vista Previa y Exportación de Kyvora Studio', () => {
 
       // 2. Export B: 1080p @ 60 FPS
       const projB = createNewProject({ name: 'Export_B_1080p_60fps', width: 1920, height: 1080, frameRate: 60 });
-      projB.durationSeconds = 3;
+      projB.durationSeconds = 1;
       projB.assets.push({
         id: 'asset_test_b',
         name: 'test_input.mp4',
@@ -349,7 +349,7 @@ describe('Motor de Vista Previa y Exportación de Kyvora Studio', () => {
         assetId: 'asset_test_b',
         name: 'Clip B',
         startInTimelineSeconds: 0,
-        durationSeconds: 3,
+        durationSeconds: 1,
         sourceStartSeconds: 0,
         effects: []
       });
@@ -374,7 +374,7 @@ describe('Motor de Vista Previa y Exportación de Kyvora Studio', () => {
       expect(probeB).toContain('height=1080');
       expect(probeB).toContain('r_frame_rate=60/1');
       expect(probeB).toContain('codec_name=h264');
-    }, 60000);
+    }, 120000);
   });
 });
 

@@ -52,7 +52,7 @@ pub async fn pick_media_files(app: tauri::AppHandle) -> Result<Vec<String>, Stri
     let dialog = app
         .dialog()
         .file()
-        .add_filter("Archivos multimedia", &["mp4", "mkv", "avi", "mov", "webm", "mp3", "wav", "aac", "flac", "ogg", "jpg", "jpeg", "png", "webp"]);
+        .add_filter("Archivos multimedia", &["mp4", "mkv", "avi", "mov", "webm", "mp3", "wav", "aac", "flac", "ogg", "m4a", "jpg", "jpeg", "png", "webp", "gif", "bmp"]);
 
     let chosen = dialog.blocking_pick_files();
     let paths = match chosen {
@@ -64,6 +64,35 @@ pub async fn pick_media_files(app: tauri::AppHandle) -> Result<Vec<String>, Stri
     };
 
     Ok(paths)
+}
+
+#[tauri::command]
+pub async fn pick_folder_path(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let dialog = app.dialog().file();
+    let chosen = dialog.blocking_pick_folder();
+    let folder_path = chosen.and_then(|p| p.as_path().map(|path| path.to_string_lossy().to_string()));
+    Ok(folder_path)
+}
+
+#[tauri::command]
+pub async fn scan_media_folder(folder_path: String) -> Result<Vec<String>, String> {
+    let mut files = Vec::new();
+    let allowed_exts = ["mp4", "mkv", "avi", "mov", "webm", "mp3", "wav", "aac", "flac", "ogg", "m4a", "jpg", "jpeg", "png", "webp", "gif", "bmp"];
+    if let Ok(entries) = std::fs::read_dir(&folder_path) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                    if allowed_exts.contains(&ext.to_lowercase().as_str()) {
+                        files.push(path.to_string_lossy().to_string());
+                    }
+                }
+            }
+        }
+    }
+    // Ordenar alfabéticamente para secuencias de imágenes o clips ordenados
+    files.sort();
+    Ok(files)
 }
 
 #[tauri::command]

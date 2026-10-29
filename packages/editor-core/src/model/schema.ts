@@ -79,8 +79,8 @@ export function validateProjectSchema(data: unknown): ValidationResult {
       if (!asset.name || typeof asset.name !== 'string') {
         issues.push({ field: `assets[${index}].name`, message: 'El nombre del recurso es obligatorio' });
       }
-      if (!['video', 'audio', 'image'].includes(asset.type)) {
-        issues.push({ field: `assets[${index}].type`, message: 'El tipo de recurso debe ser video, audio o image' });
+      if (!['video', 'audio', 'image', 'text'].includes(asset.type)) {
+        issues.push({ field: `assets[${index}].type`, message: 'El tipo de recurso debe ser video, audio, image o text' });
       }
       if (typeof asset.durationInSeconds !== 'number' || asset.durationInSeconds < 0) {
         issues.push({ field: `assets[${index}].durationInSeconds`, message: 'La duración del recurso debe ser un número >= 0' });
@@ -96,8 +96,8 @@ export function validateProjectSchema(data: unknown): ValidationResult {
       if (!track.id || typeof track.id !== 'string') {
         issues.push({ field: `tracks[${trackIndex}].id`, message: 'El id de pista es obligatorio' });
       }
-      if (!['video', 'audio'].includes(track.type)) {
-        issues.push({ field: `tracks[${trackIndex}].type`, message: 'El tipo de pista debe ser video o audio' });
+      if (!['video', 'audio', 'text', 'overlay'].includes(track.type)) {
+        issues.push({ field: `tracks[${trackIndex}].type`, message: 'El tipo de pista debe ser video, audio, text u overlay' });
       }
       if (!Array.isArray(track.clips)) {
         issues.push({ field: `tracks[${trackIndex}].clips`, message: 'Los clips de la pista deben ser un arreglo' });
@@ -169,7 +169,7 @@ export const PROJECT_MIGRATIONS: ProjectMigration[] = [
   {
     fromVersion: '1.0.0',
     toVersion: '1.1.0',
-    migrate: (rawProject: any): KyvoraProject => {
+    migrate: (rawProject: any): any => {
       const existingSettings = rawProject.settings || {};
       return {
         ...rawProject,
@@ -183,6 +183,46 @@ export const PROJECT_MIGRATIONS: ProjectMigration[] = [
           previewQuality: existingSettings.previewQuality || 'balanced',
           aspectRatioLocked: existingSettings.aspectRatioLocked !== undefined ? existingSettings.aspectRatioLocked : true
         }
+      };
+    }
+  },
+  {
+    fromVersion: '1.1.0',
+    toVersion: '2.0.0',
+    migrate: (rawProject: any): KyvoraProject => {
+      const updatedTracks = (rawProject.tracks || []).map((track: any) => ({
+        ...track,
+        type: track.type || 'video',
+        isLocked: track.isLocked ?? false,
+        isMuted: track.isMuted ?? false,
+        isVisible: track.isVisible ?? true,
+        isSolo: track.isSolo ?? false,
+        clips: (track.clips || []).map((clip: any) => ({
+          ...clip,
+          effects: clip.effects || [],
+          transitions: clip.transitions || [],
+          keyframes: clip.keyframes || [],
+          speed: clip.speed || {
+            playbackSpeed: 1.0,
+            isReversed: false,
+            pitchCorrection: true
+          },
+          audio: {
+            volume: clip.audio?.volume ?? 1.0,
+            gainDb: clip.audio?.gainDb ?? 0,
+            isMuted: clip.audio?.isMuted ?? false,
+            pan: clip.audio?.pan ?? 0,
+            fadeInDurationSeconds: clip.audio?.fadeInDurationSeconds ?? 0,
+            fadeOutDurationSeconds: clip.audio?.fadeOutDurationSeconds ?? 0,
+            isNormalized: clip.audio?.isNormalized ?? false
+          }
+        }))
+      }));
+
+      return {
+        ...rawProject,
+        schemaVersion: '2.0.0',
+        tracks: updatedTracks
       };
     }
   }
@@ -262,6 +302,7 @@ export function createNewProject(params?: {
         order: 0,
         isMuted: false,
         isLocked: false,
+        isVisible: true,
         clips: []
       },
       {
@@ -271,6 +312,7 @@ export function createNewProject(params?: {
         order: 1,
         isMuted: false,
         isLocked: false,
+        isVisible: true,
         clips: []
       }
     ],

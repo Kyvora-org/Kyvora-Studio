@@ -44,6 +44,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
   const [customHeight, setCustomHeight] = useState<number>(project.settings?.height || 1080);
   const [fps, setFps] = useState<number>(project.settings?.frameRate || 30);
   const [quality, setQuality] = useState<ExportQuality>('high');
+  const [customBitrateMbps, setCustomBitrateMbps] = useState<number>(12);
   const [vcodec, setVcodec] = useState<VideoCodec>('h264');
   const [acodec, setAcodec] = useState<AudioCodec>('aac');
   const [outputPath, setOutputPath] = useState<string>(
@@ -151,6 +152,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
       quality,
       videoCodec: vcodec,
       audioCodec: acodec,
+      customBitrateKbps: customBitrateMbps ? Math.round(customBitrateMbps * 1000) : undefined,
       outputPath: targetPath
     };
 
@@ -343,6 +345,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
               >
                 <option value="1080p">1080p Full HD (1920×1080)</option>
                 <option value="720p">720p HD (1280×720)</option>
+                <option value="480p">480p SD (854×480)</option>
                 <option value="1440p">1440p 2K QHD (2560×1440)</option>
                 <option value="4k">4K Ultra HD (3840×2160)</option>
                 <option value="custom">Personalizada...</option>
@@ -391,8 +394,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
             </div>
           </div>
 
-          {/* Calidad y Códec */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Calidad, Bitrate y Códec */}
+          <div className="grid grid-cols-4 gap-2.5">
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium text-slate-400">Calidad</label>
               <select
@@ -409,6 +412,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
             </div>
 
             <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-slate-400">Bitrate (Mbps)</label>
+              <input
+                type="number"
+                min="1"
+                max="120"
+                disabled={isExporting}
+                value={customBitrateMbps}
+                onChange={(e) => setCustomBitrateMbps(Math.max(1, parseInt(e.target.value) || 12))}
+                className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-slate-200 text-[11px]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
               <label className="text-[11px] font-medium text-slate-400">Códec Video</label>
               <select
                 disabled={isExporting}
@@ -418,6 +434,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
               >
                 <option value="h264">H.264 (Universal MP4)</option>
                 <option value="hevc">H.265 / HEVC</option>
+                <option value="vp9">VP9 (WebM)</option>
+                <option value="prores">Apple ProRes (MOV)</option>
               </select>
             </div>
 
@@ -431,6 +449,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
               >
                 <option value="aac">AAC (Estéreo 48kHz)</option>
                 <option value="mp3">MP3</option>
+                <option value="opus">Opus (Alta fidelidad)</option>
               </select>
             </div>
           </div>

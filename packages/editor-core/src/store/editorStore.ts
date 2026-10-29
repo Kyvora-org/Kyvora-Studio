@@ -18,7 +18,19 @@ import {
   immutableRemoveEffectFromClip,
   immutableUpdateProjectSettings,
   immutableUpdateEffectInClip,
-  immutableUpdateClipTransform
+  immutableUpdateClipTransform,
+  immutableToggleTrackVisibility,
+  immutableToggleTrackLock,
+  immutableToggleTrackMute,
+  immutableUpdateClipAudio,
+  immutableUpdateClipSpeed,
+  immutableAddTransitionToClip,
+  immutableRemoveTransitionFromClip,
+  immutableAddKeyframeToClip,
+  immutableRemoveKeyframeFromClip,
+  immutableUpdateTitleProperties,
+  immutableSeparateAudioFromVideo,
+  immutableJoinClips
 } from '../model/operations';
 import { HistoryManager } from '../history/historyManager';
 import { IProjectStorageAdapter, WebIndexedDBStorageAdapter } from '../storage/projectStorage';
@@ -71,6 +83,20 @@ export interface EditorState {
   removeEffectFromClip: (clipId: string, effectId: string) => void;
   updateClipTransform: (clipId: string, transform: Partial<import('../types/project').TransformProperties>) => void;
   updateProjectSettings: (settings: Partial<KyvoraProject['settings']>) => void;
+
+  // Acciones avanzadas de pista y edición NLE
+  toggleTrackVisibility: (trackId: string) => void;
+  toggleTrackLock: (trackId: string) => void;
+  toggleTrackMute: (trackId: string) => void;
+  updateClipAudio: (clipId: string, audio: Partial<import('../types/project').AudioProperties>) => void;
+  updateClipSpeed: (clipId: string, speed: Partial<import('../types/project').SpeedProperties>) => void;
+  addTransitionToClip: (clipId: string, transition: import('../types/project').ClipTransition) => void;
+  removeTransitionFromClip: (clipId: string, transitionId: string) => void;
+  addKeyframeToClip: (clipId: string, keyframe: import('../types/project').Keyframe) => void;
+  removeKeyframeFromClip: (clipId: string, keyframeId: string) => void;
+  updateTitleProperties: (clipId: string, titleProps: Partial<import('../types/project').TitleProperties>) => void;
+  separateAudioFromVideo: (clipId: string) => void;
+  joinClips: (firstClipId: string, secondClipId: string) => void;
 
   // Historial consistente (Undo / Redo)
   undo: () => void;
@@ -391,6 +417,138 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     history.push(nextProject);
     set({
       project: nextProject,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  toggleTrackVisibility: (trackId) => {
+    const nextProject = immutableToggleTrackVisibility(get().project, trackId);
+    history.push(nextProject);
+    set({
+      project: nextProject,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  toggleTrackLock: (trackId) => {
+    const nextProject = immutableToggleTrackLock(get().project, trackId);
+    history.push(nextProject);
+    set({
+      project: nextProject,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  toggleTrackMute: (trackId) => {
+    const nextProject = immutableToggleTrackMute(get().project, trackId);
+    history.push(nextProject);
+    set({
+      project: nextProject,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  updateClipAudio: (clipId, audio) => {
+    const nextProject = immutableUpdateClipAudio(get().project, clipId, audio);
+    history.push(nextProject);
+    set({
+      project: nextProject,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  updateClipSpeed: (clipId, speed) => {
+    const nextProject = immutableUpdateClipSpeed(get().project, clipId, speed);
+    history.push(nextProject);
+    set({
+      project: nextProject,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  addTransitionToClip: (clipId, transition) => {
+    const nextProject = immutableAddTransitionToClip(get().project, clipId, transition);
+    history.push(nextProject);
+    set({
+      project: nextProject,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  removeTransitionFromClip: (clipId, transitionId) => {
+    const nextProject = immutableRemoveTransitionFromClip(get().project, clipId, transitionId);
+    history.push(nextProject);
+    set({
+      project: nextProject,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  addKeyframeToClip: (clipId, keyframe) => {
+    const nextProject = immutableAddKeyframeToClip(get().project, clipId, keyframe);
+    history.push(nextProject);
+    set({
+      project: nextProject,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  removeKeyframeFromClip: (clipId, keyframeId) => {
+    const nextProject = immutableRemoveKeyframeFromClip(get().project, clipId, keyframeId);
+    history.push(nextProject);
+    set({
+      project: nextProject,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  updateTitleProperties: (clipId, titleProps) => {
+    const nextProject = immutableUpdateTitleProperties(get().project, clipId, titleProps);
+    history.push(nextProject);
+    set({
+      project: nextProject,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  separateAudioFromVideo: (clipId) => {
+    const res = immutableSeparateAudioFromVideo(get().project, clipId);
+    history.push(res.project);
+    set({
+      project: res.project,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  joinClips: (firstClipId, secondClipId) => {
+    const res = immutableJoinClips(get().project, firstClipId, secondClipId);
+    history.push(res.project);
+    set({
+      project: res.project,
       isDirty: true,
       canUndo: history.canUndo(),
       canRedo: history.canRedo()

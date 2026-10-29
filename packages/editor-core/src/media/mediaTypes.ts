@@ -60,7 +60,8 @@ export const SUPPORTED_EXTENSIONS: Record<string, { type: MediaType; container: 
   'jpeg': { type: 'image', container: 'jpeg', browserNative: true },
   'webp': { type: 'image', container: 'webp', browserNative: true },
   'svg': { type: 'image', container: 'svg', browserNative: true },
-  'gif': { type: 'image', container: 'gif', browserNative: true }
+  'gif': { type: 'image', container: 'gif', browserNative: true },
+  'bmp': { type: 'image', container: 'bmp', browserNative: true }
 };
 
 export function detectMediaFormatSupport(fileName: string, _mimeType?: string): MediaFormatSupport {

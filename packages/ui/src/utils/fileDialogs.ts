@@ -101,3 +101,21 @@ export async function showOpenMediaDialog(): Promise<string[]> {
   return [];
 }
 
+/**
+ * Convierte una ruta de archivo local en una URL accesible para el reproductor multimedia
+ * en entorno Tauri (streaming directo desde disco sin cargar a RAM).
+ */
+export function getAssetSrc(filePath: string): string {
+  if (isTauriEnvironment()) {
+    const tauriGlobal = (window as any).__TAURI_INTERNALS__;
+    if (tauriGlobal && typeof tauriGlobal.convertFileSrc === 'function') {
+      return tauriGlobal.convertFileSrc(filePath);
+    }
+    // Protocolo de streaming nativo de Tauri 2 en Windows
+    const normalized = filePath.replace(/\\/g, '/');
+    return `http://asset.localhost/${encodeURI(normalized)}`;
+  }
+  return filePath;
+}
+
+

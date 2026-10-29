@@ -38,6 +38,30 @@ struct RawFFprobeOutput {
     format: Option<RawFormat>,
 }
 
+pub fn base64_encode(data: &[u8]) -> String {
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut result = String::with_capacity((data.len() + 2) / 3 * 4);
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0];
+        let b1 = if chunk.len() > 1 { chunk[1] } else { 0 };
+        let b2 = if chunk.len() > 2 { chunk[2] } else { 0 };
+
+        result.push(CHARSET[(b0 >> 2) as usize] as char);
+        result.push(CHARSET[(((b0 & 0x03) << 4) | (b1 >> 4)) as usize] as char);
+        if chunk.len() > 1 {
+            result.push(CHARSET[(((b1 & 0x0F) << 2) | (b2 >> 6)) as usize] as char);
+        } else {
+            result.push('=');
+        }
+        if chunk.len() > 2 {
+            result.push(CHARSET[(b2 & 0x3F) as usize] as char);
+        } else {
+            result.push('=');
+        }
+    }
+    result
+}
+
 #[tauri::command]
 pub fn probe_media_file(file_path: String) -> FFprobeResult {
     // 1. Validaciones preventivas de seguridad sobre la ruta
@@ -178,4 +202,36 @@ pub fn probe_media_file(file_path: String) -> FFprobeResult {
         codec_name,
         error: None,
     }
+}
+
+#[tauri::command]
+pub async fn generate_media_thumbnail(
+    file_path: String,
+    offset_seconds: Option<f64>,
+) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let ss = offset_seconds.unwrap_or(1.0).max(0.0).to_string();
+        let output = Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-ss", &ss,
+                "-i", &file_path,
+                "-vframes", "1",
+                "-s", "320x180",
+                "-f", "image2pipe",
+                "-vcodec", "mjpeg",
+                "-"
+            ])
+            .output();
+
+        match output {
+            Ok(out) if out.status.success() && !out.stdout.is_empty() => {
+                let b64 = base64_encode(&out.stdout);
+                Ok(Some(format!("data:image/jpeg;base64,{}", b64)))
+            }
+            _ => Ok(None),
+        }
+    })
+    .await
+    .map_err(|e| format!("Error en tarea de generación de miniatura: {}", e))?
 }

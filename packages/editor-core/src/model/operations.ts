@@ -583,3 +583,415 @@ export function immutableUpdateClipTransform(
   };
 }
 
+export function immutableToggleTrackVisibility(project: KyvoraProject, trackId: string): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(t => {
+      if (t.id !== trackId) return t;
+      return { ...t, isVisible: t.isVisible === undefined ? false : !t.isVisible };
+    }),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableToggleTrackLock(project: KyvoraProject, trackId: string): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(t => {
+      if (t.id !== trackId) return t;
+      return { ...t, isLocked: !t.isLocked };
+    }),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableToggleTrackMute(project: KyvoraProject, trackId: string): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(t => {
+      if (t.id !== trackId) return t;
+      return { ...t, isMuted: !t.isMuted };
+    }),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableUpdateClipAudio(
+  project: KyvoraProject,
+  clipId: string,
+  audio: Partial<import('../types/project').AudioProperties>
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(track => ({
+      ...track,
+      clips: track.clips.map(clip => {
+        if (clip.id !== clipId) return clip;
+        const currentAudio = clip.audio || {
+          volume: 1.0,
+          isMuted: false,
+          pan: 0,
+          gainDb: 0,
+          fadeInDurationSeconds: 0,
+          fadeOutDurationSeconds: 0,
+          isNormalized: false
+        };
+        return {
+          ...clip,
+          audio: {
+            ...currentAudio,
+            ...audio
+          }
+        };
+      })
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableUpdateClipSpeed(
+  project: KyvoraProject,
+  clipId: string,
+  speed: Partial<import('../types/project').SpeedProperties>
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(track => ({
+      ...track,
+      clips: track.clips.map(clip => {
+        if (clip.id !== clipId) return clip;
+        const currentSpeed = clip.speed || {
+          playbackSpeed: 1.0,
+          isReversed: false,
+          pitchCorrection: true
+        };
+        return {
+          ...clip,
+          speed: {
+            ...currentSpeed,
+            ...speed
+          }
+        };
+      })
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableAddTransitionToClip(
+  project: KyvoraProject,
+  clipId: string,
+  transition: import('../types/project').ClipTransition
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(track => ({
+      ...track,
+      clips: track.clips.map(clip => {
+        if (clip.id !== clipId) return clip;
+        const existing = (clip.transitions || []).filter(
+          t => t.position !== transition.position
+        );
+        return {
+          ...clip,
+          transitions: [...existing, transition]
+        };
+      })
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableRemoveTransitionFromClip(
+  project: KyvoraProject,
+  clipId: string,
+  transitionId: string
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(track => ({
+      ...track,
+      clips: track.clips.map(clip => {
+        if (clip.id !== clipId) return clip;
+        return {
+          ...clip,
+          transitions: (clip.transitions || []).filter(t => t.id !== transitionId)
+        };
+      })
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableAddKeyframeToClip(
+  project: KyvoraProject,
+  clipId: string,
+  keyframe: import('../types/project').Keyframe
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(track => ({
+      ...track,
+      clips: track.clips.map(clip => {
+        if (clip.id !== clipId) return clip;
+        const existing = (clip.keyframes || []).filter(
+          kf => !(kf.property === keyframe.property && Math.abs(kf.timeSeconds - keyframe.timeSeconds) < 0.05)
+        );
+        const sorted = [...existing, keyframe].sort((a, b) => a.timeSeconds - b.timeSeconds);
+        return {
+          ...clip,
+          keyframes: sorted
+        };
+      })
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableRemoveKeyframeFromClip(
+  project: KyvoraProject,
+  clipId: string,
+  keyframeId: string
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(track => ({
+      ...track,
+      clips: track.clips.map(clip => {
+        if (clip.id !== clipId) return clip;
+        return {
+          ...clip,
+          keyframes: (clip.keyframes || []).filter(kf => kf.id !== keyframeId)
+        };
+      })
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableUpdateTitleProperties(
+  project: KyvoraProject,
+  clipId: string,
+  titleProps: Partial<import('../types/project').TitleProperties>
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(track => ({
+      ...track,
+      clips: track.clips.map(clip => {
+        if (clip.id !== clipId) return clip;
+        const currentProps = clip.titleProperties || {
+          text: 'Título de Kyvora',
+          fontFamily: 'Inter, sans-serif',
+          fontSize: 48,
+          textColor: '#FFFFFF',
+          alignment: 'center',
+          animationIn: 'fade',
+          animationOut: 'fade',
+          template: 'custom'
+        };
+        return {
+          ...clip,
+          titleProperties: {
+            ...currentProps,
+            ...titleProps
+          }
+        };
+      })
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+/**
+ * Separa el canal de audio de un clip de vídeo, creando una pista de audio dedicada
+ * y silenciando el clip original de vídeo.
+ */
+export function immutableSeparateAudioFromVideo(
+  project: KyvoraProject,
+  clipId: string
+): { project: KyvoraProject; audioClipId?: string } {
+  let foundClip: TimelineClip | null = null;
+  for (const track of project.tracks) {
+    const c = track.clips.find(item => item.id === clipId);
+    if (c) {
+      foundClip = c;
+      break;
+    }
+  }
+
+  if (!foundClip) {
+    return { project };
+  }
+
+  const asset = project.assets.find(a => a.id === foundClip?.assetId);
+  if (!asset || asset.type !== 'video') {
+    return { project }; // Solo clips de video pueden separar su audio
+  }
+
+  // Buscar o crear pista de audio
+  let targetAudioTrack = project.tracks.find(t => t.type === 'audio');
+  let currentProject = project;
+
+  if (!targetAudioTrack) {
+    const newTrackId = `track_audio_${Date.now()}`;
+    currentProject = immutableAddTrack(currentProject, {
+      name: 'Audio Separado',
+      type: 'audio',
+      isMuted: false,
+      isLocked: false,
+      isVisible: true
+    }, newTrackId);
+    targetAudioTrack = currentProject.tracks.find(t => t.id === newTrackId);
+  }
+
+  const audioClipId = `clip_audio_sep_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const audioClip: TimelineClip = {
+    id: audioClipId,
+    assetId: foundClip.assetId,
+    trackId: targetAudioTrack!.id,
+    name: `${foundClip.name} (Audio)`,
+    startInTimelineSeconds: foundClip.startInTimelineSeconds,
+    durationSeconds: foundClip.durationSeconds,
+    sourceStartSeconds: foundClip.sourceStartSeconds,
+    color: '#0066FF',
+    audio: {
+      volume: foundClip.audio?.volume ?? 1.0,
+      gainDb: foundClip.audio?.gainDb ?? 0,
+      isMuted: false,
+      pan: foundClip.audio?.pan ?? 0,
+      detachedAudioSourceClipId: foundClip.id
+    },
+    effects: []
+  };
+
+  // Silenciar el video original
+  const projectWithMutedVideo = immutableUpdateClipAudio(currentProject, clipId, {
+    isMuted: true,
+    volume: 0
+  });
+
+  // Agregar el clip de audio a la pista de audio
+  const finalProject = {
+    ...projectWithMutedVideo,
+    tracks: projectWithMutedVideo.tracks.map(t => {
+      if (t.id !== targetAudioTrack!.id) return t;
+      return {
+        ...t,
+        clips: [...t.clips, audioClip]
+      };
+    }),
+    updatedAt: new Date().toISOString()
+  };
+
+  return { project: finalProject, audioClipId };
+}
+
+/**
+ * Une dos clips contiguos en la línea de tiempo si pertenecen al mismo recurso original.
+ */
+export function immutableJoinClips(
+  project: KyvoraProject,
+  firstClipId: string,
+  secondClipId: string
+): { project: KyvoraProject; joinedClipId?: string } {
+  let trackIndex = -1;
+  let firstIdx = -1;
+  let secondIdx = -1;
+
+  for (let i = 0; i < project.tracks.length; i++) {
+    const t = project.tracks[i];
+    const f = t.clips.findIndex(c => c.id === firstClipId);
+    const s = t.clips.findIndex(c => c.id === secondClipId);
+    if (f !== -1 && s !== -1) {
+      trackIndex = i;
+      firstIdx = f;
+      secondIdx = s;
+      break;
+    }
+  }
+
+  if (trackIndex === -1) return { project };
+
+  const track = project.tracks[trackIndex];
+  const c1 = track.clips[firstIdx];
+  const c2 = track.clips[secondIdx];
+
+  // Comprobar que pertenezcan al mismo activo
+  if (c1.assetId !== c2.assetId) return { project };
+
+  // Comprobar que sean contiguos temporalmente (margen 0.05s)
+  const isContiguous = Math.abs((c1.startInTimelineSeconds + c1.durationSeconds) - c2.startInTimelineSeconds) < 0.05;
+  if (!isContiguous) return { project };
+
+  const joinedClip: TimelineClip = {
+    ...c1,
+    durationSeconds: c1.durationSeconds + c2.durationSeconds
+  };
+
+  const newClips = track.clips.filter(c => c.id !== firstClipId && c.id !== secondClipId);
+  newClips.push(joinedClip);
+  newClips.sort((a, b) => a.startInTimelineSeconds - b.startInTimelineSeconds);
+
+  return {
+    project: {
+      ...project,
+      tracks: project.tracks.map((t, idx) => idx === trackIndex ? { ...t, clips: newClips } : t),
+      updatedAt: new Date().toISOString()
+    },
+    joinedClipId: c1.id
+  };
+}
+
+/**
+ * Interpola propiedades animadas de un clip en base a sus keyframes.
+ */
+export function interpolateClipPropertyAtTime(
+  clip: TimelineClip,
+  property: import('../types/project').AnimatableProperty,
+  relativeTimeSeconds: number
+): number | null {
+  if (!clip.keyframes || clip.keyframes.length === 0) return null;
+
+  const matchingKeyframes = clip.keyframes
+    .filter(kf => kf.property === property)
+    .sort((a, b) => a.timeSeconds - b.timeSeconds);
+
+  if (matchingKeyframes.length === 0) return null;
+  if (matchingKeyframes.length === 1) return matchingKeyframes[0].value;
+
+  if (relativeTimeSeconds <= matchingKeyframes[0].timeSeconds) {
+    return matchingKeyframes[0].value;
+  }
+
+  const lastKf = matchingKeyframes[matchingKeyframes.length - 1];
+  if (relativeTimeSeconds >= lastKf.timeSeconds) {
+    return lastKf.value;
+  }
+
+  for (let i = 0; i < matchingKeyframes.length - 1; i++) {
+    const kf1 = matchingKeyframes[i];
+    const kf2 = matchingKeyframes[i + 1];
+
+    if (relativeTimeSeconds >= kf1.timeSeconds && relativeTimeSeconds <= kf2.timeSeconds) {
+      const duration = kf2.timeSeconds - kf1.timeSeconds;
+      if (duration <= 0) return kf1.value;
+
+      let progress = (relativeTimeSeconds - kf1.timeSeconds) / duration;
+
+      if (kf2.easing === 'easeInOut') {
+        progress = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      } else if (kf2.easing === 'easeIn') {
+        progress = progress * progress;
+      } else if (kf2.easing === 'easeOut') {
+        progress = 1 - (1 - progress) * (1 - progress);
+      }
+
+      return kf1.value + (kf2.value - kf1.value) * progress;
+    }
+  }
+
+  return matchingKeyframes[0].value;
+}
+
+

@@ -143,7 +143,7 @@ describe('Kyvora Studio — Ajustes de Proyecto y Motor Multimedia', () => {
     const json = JSON.stringify(legacyProjectV1);
     const loaded = deserializeProject(json);
 
-    expect(loaded.schemaVersion).toBe('1.1.0');
+    expect(loaded.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(loaded.settings.previewQuality).toBe('balanced');
     expect(loaded.settings.aspectRatioLocked).toBe(true);
     expect(loaded.settings.frameRate).toBe(30);
