@@ -115,6 +115,9 @@ export function validateProjectSchema(data: unknown): ValidationResult {
           if (clip.effects && !Array.isArray(clip.effects)) {
             issues.push({ field: `tracks[${trackIndex}].clips[${clipIndex}].effects`, message: 'Los efectos del clip deben ser un arreglo' });
           }
+          if (clip.masks && !Array.isArray(clip.masks)) {
+            issues.push({ field: `tracks[${trackIndex}].clips[${clipIndex}].masks`, message: 'Las máscaras del clip deben ser un arreglo' });
+          }
         });
       }
     });
@@ -222,6 +225,30 @@ export const PROJECT_MIGRATIONS: ProjectMigration[] = [
       return {
         ...rawProject,
         schemaVersion: '2.0.0',
+        tracks: updatedTracks
+      };
+    }
+  },
+  {
+    fromVersion: '2.0.0',
+    toVersion: '3.0.0',
+    migrate: (rawProject: any): KyvoraProject => {
+      const updatedTracks = (rawProject.tracks || []).map((track: any) => ({
+        ...track,
+        clips: (track.clips || []).map((clip: any) => ({
+          ...clip,
+          blendMode: clip.blendMode || 'normal',
+          masks: clip.masks || [],
+          keyframes: (clip.keyframes || []).map((k: any) => ({
+            ...k,
+            interpolation: k.interpolation || k.easing || 'linear'
+          }))
+        }))
+      }));
+
+      return {
+        ...rawProject,
+        schemaVersion: '3.0.0',
         tracks: updatedTracks
       };
     }

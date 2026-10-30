@@ -6,4 +6,9 @@ export * from './components/Timeline';
 export * from './components/ExportModal';
 export * from './components/ProjectSettingsModal';
 export * from './components/AppLayout';
-
+export * from './components/ColorGradingPanel';
+export * from './components/MasksInspector';
+export * from './components/AudioMixerPanel';
+export * from './components/GraphEditor';
+export * from './components/ResourceLibraryPanel';
+export * from './components/ExportQueueModal';

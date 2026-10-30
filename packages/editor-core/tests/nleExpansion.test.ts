@@ -29,11 +29,13 @@ function createMockProject(): KyvoraProject {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     settings: {
+      name: 'Test Project',
       width: 1920,
       height: 1080,
       frameRate: 30,
-      sampleRate: 48000,
-      audioChannels: 2
+      timecodeFormat: 'smpte',
+      previewQuality: 'balanced',
+      aspectRatioLocked: true
     },
     durationSeconds: 10,
     assets: [
@@ -62,6 +64,7 @@ function createMockProject(): KyvoraProject {
         id: 'track-v1',
         name: 'Video 1',
         type: 'video',
+        order: 0,
         isLocked: false,
         isMuted: false,
         isVisible: true,
@@ -92,6 +95,7 @@ function createMockProject(): KyvoraProject {
         id: 'track-a1',
         name: 'Audio 1',
         type: 'audio',
+        order: 1,
         isLocked: false,
         isMuted: false,
         isVisible: true,
@@ -408,12 +412,12 @@ describe('NLE Expansion Suite: Schema v2.0 Evolution & Backwards Compatibility',
     };
 
     const migrated = migrateProjectIfNeeded(legacyProjectV1);
-    expect(migrated.schemaVersion).toBe('2.0.0');
+    expect(migrated.schemaVersion).toBe('3.0.0');
     expect(migrated.tracks[0].type).toBe('video');
     expect(migrated.tracks[0].isLocked).toBe(false);
     expect(migrated.tracks[0].isMuted).toBe(false);
 
-    // Debe validar con la versión 2.0.0
+    // Debe validar con la versión actual 3.0.0
     const validation = validateProjectSchema(migrated);
     expect(validation.isValid).toBe(true);
   });

@@ -27,6 +27,10 @@ import {
   Clock,
   Plus
 } from 'lucide-react';
+import { ColorGradingPanel } from './ColorGradingPanel';
+import { MasksInspector } from './MasksInspector';
+import { AudioMixerPanel } from './AudioMixerPanel';
+import { GraphEditor } from './GraphEditor';
 
 export const InspectorPanel: React.FC = () => {
   const { 
@@ -45,10 +49,17 @@ export const InspectorPanel: React.FC = () => {
     removeTransitionFromClip,
     addKeyframeToClip,
     removeKeyframeFromClip,
-    updateTitleProperties
+    updateTitleProperties,
+    updateClipColorWheels,
+    updateClipColorCurves,
+    updateClipLut3D,
+    updateClipMasks,
+    updateClipChromaKey,
+    updateClipBlendMode,
+    updateClipAudioSuite
   } = useEditorStore();
 
-  const [activeTab, setActiveTab] = useState<'transform' | 'speed' | 'audio' | 'effects' | 'transitions' | 'text' | 'keyframes'>('transform');
+  const [activeTab, setActiveTab] = useState<'transform' | 'speed' | 'audio' | 'effects' | 'transitions' | 'text' | 'keyframes' | 'color' | 'masks'>('transform');
 
   // Encontrar clip seleccionado en las pistas
   let selectedClip = null;
@@ -280,6 +291,20 @@ export const InspectorPanel: React.FC = () => {
         </button>
         <button
           type="button"
+          onClick={() => setActiveTab('color')}
+          className={`px-2 py-0.5 rounded transition-colors ${activeTab === 'color' ? 'bg-blue-900/50 text-blue-300 border border-blue-500/50' : 'text-slate-400 hover:text-white'}`}
+        >
+          Color v3
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('masks')}
+          className={`px-2 py-0.5 rounded transition-colors ${activeTab === 'masks' ? 'bg-blue-900/50 text-blue-300 border border-blue-500/50' : 'text-slate-400 hover:text-white'}`}
+        >
+          Máscaras
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab('text')}
           className={`px-2 py-0.5 rounded transition-colors ${activeTab === 'text' ? 'bg-blue-900/50 text-blue-300 border border-blue-500/50' : 'text-slate-400 hover:text-white'}`}
         >
@@ -443,8 +468,13 @@ export const InspectorPanel: React.FC = () => {
         {/* AUDIO TAB */}
         {activeTab === 'audio' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-200">
-              <span className="flex items-center gap-1.5"><Volume2 className="w-3.5 h-3.5 text-emerald-400" /> Control de Audio</span>
+            <AudioMixerPanel
+              clip={selectedClip}
+              onUpdateAudioSuite={(suite) => updateClipAudioSuite(selectedClip.id, suite)}
+            />
+
+            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-200 pt-3 border-t border-slate-800">
+              <span className="flex items-center gap-1.5"><Volume2 className="w-3.5 h-3.5 text-emerald-400" /> Parámetros Básicos</span>
               <button
                 type="button"
                 onClick={() => updateClipAudio(selectedClip.id, { isMuted: !audio.isMuted })}
@@ -909,6 +939,42 @@ export const InspectorPanel: React.FC = () => {
                 ))
               )}
             </div>
+            {/* Editor de Curvas Bézier v3.0 */}
+            <div className="pt-2 border-t border-slate-800">
+              <GraphEditor
+                keyframes={selectedClip.keyframes || []}
+                onUpdateKeyframe={(kId, updates) => {
+                  const existingKf = selectedClip.keyframes?.find(k => k.id === kId);
+                  if (existingKf) {
+                    addKeyframeToClip(selectedClip.id, { ...existingKf, ...updates });
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* COLOR GRADING v3 TAB */}
+        {activeTab === 'color' && (
+          <div className="space-y-4">
+            <ColorGradingPanel
+              clip={selectedClip}
+              onUpdateWheels={(wheels) => updateClipColorWheels(selectedClip.id, wheels)}
+              onUpdateCurves={(curves) => updateClipColorCurves(selectedClip.id, curves)}
+              onUpdateLut={(lut) => updateClipLut3D(selectedClip.id, lut)}
+            />
+          </div>
+        )}
+
+        {/* MASKS & CHROMA KEY TAB */}
+        {activeTab === 'masks' && (
+          <div className="space-y-4">
+            <MasksInspector
+              clip={selectedClip}
+              onUpdateMasks={(masks) => updateClipMasks(selectedClip.id, masks)}
+              onUpdateChromaKey={(chroma) => updateClipChromaKey(selectedClip.id, chroma)}
+              onUpdateBlendMode={(blend) => updateClipBlendMode(selectedClip.id, blend)}
+            />
           </div>
         )}
       </div>

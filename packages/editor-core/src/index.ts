@@ -15,5 +15,20 @@ export * from './media/mediaImporter';
 export * from './render/renderPlan';
 export * from './render/previewEngine';
 export * from './render/webExportAdapter';
+export * from './render/proxyEngine';
+export * from './render/exportQueue';
 export * from './store/editorStore';
 export * from './utils/timecode';
+
+// v3.0 Professional Engines
+export * from './color/lutParser';
+export * from './color/colorCurves';
+export * from './color/colorWheels';
+export * from './color/colorScopes';
+export * from './compositing/maskEngine';
+export * from './compositing/chromaKey';
+export * from './motion/bezierEasing';
+export * from './audio/audioProcessor';
+export * from './library/resourceLibrary';
+export * from './interchange/edlInterchange';
+export * from './interchange/xmlInterchange';

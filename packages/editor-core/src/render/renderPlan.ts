@@ -6,8 +6,19 @@ import {
   VignetteEffect,
   FilmGrainEffect,
   PixelateEffect,
-  SharpenEffect
-} from '../types/project';
+  SharpenEffect,
+  ColorWheels,
+  ColorCurves,
+  ChromaKeyProperties,
+  BlendMode,
+  AudioEffectsSuite,
+  Lut3DConfig
+} from '../types/project.js';
+import { formatFfmpegColorWheelsFilter } from '../color/colorWheels.js';
+import { formatFfmpegCurvesFilter } from '../color/colorCurves.js';
+import { formatFfmpegChromaKeyFilter } from '../compositing/chromaKey.js';
+import { formatFfmpegAudioFilters } from '../audio/audioProcessor.js';
+import { resolveActiveAssetPath } from './proxyEngine.js';
 
 export type ExportResolution = '480p' | '720p' | '1080p' | '1440p' | '4k' | 'custom';
 export type ExportQuality = 'low' | 'medium' | 'high' | 'ultra';
@@ -93,6 +104,12 @@ export interface RenderClipSegment {
     type: string;
     duration: number;
   };
+  colorWheels?: ColorWheels;
+  colorCurves?: ColorCurves;
+  chromaKey?: ChromaKeyProperties;
+  blendMode?: BlendMode;
+  audioSuite?: AudioEffectsSuite;
+  lut3d?: Lut3DConfig;
 }
 
 export interface RenderPlan {
@@ -167,7 +184,7 @@ export function generateRenderPlan(
     if (track.isVisible === false) continue; // Pistas ocultas no se exportan
     for (const clip of track.clips) {
       const asset = project.assets.find(a => a.id === clip.assetId);
-      const sourcePath = asset?.filePath || `media/${clip.assetId}_${asset?.name || 'media'}`;
+      const sourcePath = asset ? resolveActiveAssetPath(asset, project.settings) : `media/${clip.assetId}_media`;
 
       if (!assetInputMap.has(clip.assetId)) {
         const inputIdx = inputs.length;
@@ -295,7 +312,13 @@ export function generateRenderPlan(
           fadeOutDuration: fadeEffect.fadeOutDurationSeconds
         } : undefined,
         transitionIn: transIn ? { type: transIn.type, duration: transIn.durationSeconds } : undefined,
-        transitionOut: transOut ? { type: transOut.type, duration: transOut.durationSeconds } : undefined
+        transitionOut: transOut ? { type: transOut.type, duration: transOut.durationSeconds } : undefined,
+        colorWheels: clip.colorWheels,
+        colorCurves: clip.colorCurves,
+        chromaKey: clip.chromaKey,
+        blendMode: clip.blendMode,
+        audioSuite: clip.audioSuite,
+        lut3d: clip.lut3d
       };
 
       if (track.type === 'video' || track.type === 'overlay' || track.type === 'text') {
@@ -449,6 +472,29 @@ export function generateRenderPlan(
       postFilter += `,drawtext=text='${escaped}':fontsize=${fs}:fontcolor=${color}:x=${drawX}:y=${drawY}:box=1:boxcolor=black@0.6:boxborderw=8`;
     }
 
+    // v3.0 Chroma Key & Pantalla Verde
+    if (seg.chromaKey && seg.chromaKey.isEnabled) {
+      const chromaFilter = formatFfmpegChromaKeyFilter(seg.chromaKey);
+      if (chromaFilter) postFilter += `,${chromaFilter}`;
+    }
+
+    // v3.0 Ruedas de Color Lift / Gamma / Gain / Offset
+    if (seg.colorWheels) {
+      const wheelsFilter = formatFfmpegColorWheelsFilter(seg.colorWheels);
+      if (wheelsFilter) postFilter += `,${wheelsFilter}`;
+    }
+
+    // v3.0 Curvas RGB y Curva Maestra
+    if (seg.colorCurves) {
+      const curvesFilter = formatFfmpegCurvesFilter(seg.colorCurves);
+      if (curvesFilter) postFilter += `,${curvesFilter}`;
+    }
+
+    // v3.0 LUT 3D (.cube)
+    if (seg.lut3d && seg.lut3d.isEnabled && seg.lut3d.filePath) {
+      postFilter += `,lut3d=file='${seg.lut3d.filePath}'`;
+    }
+
     postFilter += `[${formattedTag}]`;
     filterChains.push(postFilter);
 
@@ -509,6 +555,14 @@ export function generateRenderPlan(
     }
     if (seg.isNormalized) {
       aFilter += `,loudnorm`;
+    }
+
+    // v3.0 Audio Effects Suite (EQ paramétrico, compresor, limitador, reverb, delay, gate)
+    if (seg.audioSuite) {
+      const suiteFilters = formatFfmpegAudioFilters(undefined, seg.audioSuite);
+      if (suiteFilters.length > 0) {
+        aFilter += `,${suiteFilters.join(',')}`;
+      }
     }
 
     aFilter += `[${aFilterTag}]`;

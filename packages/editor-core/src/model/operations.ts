@@ -943,8 +943,19 @@ export function immutableJoinClips(
   };
 }
 
+import { interpolatePropertyAtTimeV3 } from '../motion/bezierEasing.js';
+import {
+  ColorWheels,
+  ColorCurves,
+  ClipMask,
+  ChromaKeyProperties,
+  BlendMode,
+  AudioEffectsSuite
+} from '../types/project.js';
+
 /**
- * Interpola propiedades animadas de un clip en base a sus keyframes.
+ * Interpola propiedades animadas de un clip en base a sus keyframes utilizando
+ * el motor de interpolación Bézier v3.0 con soporte de curvas cúbicas.
  */
 export function interpolateClipPropertyAtTime(
   clip: TimelineClip,
@@ -952,46 +963,98 @@ export function interpolateClipPropertyAtTime(
   relativeTimeSeconds: number
 ): number | null {
   if (!clip.keyframes || clip.keyframes.length === 0) return null;
-
-  const matchingKeyframes = clip.keyframes
-    .filter(kf => kf.property === property)
-    .sort((a, b) => a.timeSeconds - b.timeSeconds);
-
-  if (matchingKeyframes.length === 0) return null;
-  if (matchingKeyframes.length === 1) return matchingKeyframes[0].value;
-
-  if (relativeTimeSeconds <= matchingKeyframes[0].timeSeconds) {
-    return matchingKeyframes[0].value;
-  }
-
-  const lastKf = matchingKeyframes[matchingKeyframes.length - 1];
-  if (relativeTimeSeconds >= lastKf.timeSeconds) {
-    return lastKf.value;
-  }
-
-  for (let i = 0; i < matchingKeyframes.length - 1; i++) {
-    const kf1 = matchingKeyframes[i];
-    const kf2 = matchingKeyframes[i + 1];
-
-    if (relativeTimeSeconds >= kf1.timeSeconds && relativeTimeSeconds <= kf2.timeSeconds) {
-      const duration = kf2.timeSeconds - kf1.timeSeconds;
-      if (duration <= 0) return kf1.value;
-
-      let progress = (relativeTimeSeconds - kf1.timeSeconds) / duration;
-
-      if (kf2.easing === 'easeInOut') {
-        progress = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-      } else if (kf2.easing === 'easeIn') {
-        progress = progress * progress;
-      } else if (kf2.easing === 'easeOut') {
-        progress = 1 - (1 - progress) * (1 - progress);
-      }
-
-      return kf1.value + (kf2.value - kf1.value) * progress;
-    }
-  }
-
-  return matchingKeyframes[0].value;
+  return interpolatePropertyAtTimeV3(clip, property, relativeTimeSeconds);
 }
+
+export function immutableUpdateClipColorWheels(
+  project: KyvoraProject,
+  clipId: string,
+  colorWheels: ColorWheels
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(t => ({
+      ...t,
+      clips: t.clips.map(c => c.id === clipId ? { ...c, colorWheels } : c)
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableUpdateClipColorCurves(
+  project: KyvoraProject,
+  clipId: string,
+  colorCurves: ColorCurves
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(t => ({
+      ...t,
+      clips: t.clips.map(c => c.id === clipId ? { ...c, colorCurves } : c)
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableUpdateClipMasks(
+  project: KyvoraProject,
+  clipId: string,
+  masks: ClipMask[]
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(t => ({
+      ...t,
+      clips: t.clips.map(c => c.id === clipId ? { ...c, masks } : c)
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableUpdateClipChromaKey(
+  project: KyvoraProject,
+  clipId: string,
+  chromaKey: ChromaKeyProperties
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(t => ({
+      ...t,
+      clips: t.clips.map(c => c.id === clipId ? { ...c, chromaKey } : c)
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableUpdateClipBlendMode(
+  project: KyvoraProject,
+  clipId: string,
+  blendMode: BlendMode
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(t => ({
+      ...t,
+      clips: t.clips.map(c => c.id === clipId ? { ...c, blendMode } : c)
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableUpdateClipAudioSuite(
+  project: KyvoraProject,
+  clipId: string,
+  audioSuite: AudioEffectsSuite
+): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(t => ({
+      ...t,
+      clips: t.clips.map(c => c.id === clipId ? { ...c, audioSuite } : c)
+    })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
 
 

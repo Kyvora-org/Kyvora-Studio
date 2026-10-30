@@ -5,8 +5,7 @@ import {
   generateRenderPlan, 
   getTimelineContentDuration,
   ExportSettings,
-  PreviewEngine,
-  WebExportAdapter 
+  PreviewEngine
 } from '../src/index';
 
 describe('Motor de Vista Previa y Exportación de Kyvora Studio', () => {

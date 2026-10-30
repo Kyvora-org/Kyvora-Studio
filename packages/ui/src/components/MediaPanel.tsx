@@ -22,6 +22,7 @@ import {
   Trash2 
 } from 'lucide-react';
 import { isTauriEnvironment, invokeTauriCommand, showOpenMediaDialog } from '../utils/fileDialogs';
+import { ResourceLibraryPanel } from './ResourceLibraryPanel';
 
 export const MediaPanel: React.FC = () => {
   const { 
@@ -45,7 +46,7 @@ export const MediaPanel: React.FC = () => {
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   // Filtros y vista
-  const [activeTab, setActiveTab] = useState<'all' | 'video' | 'audio' | 'image'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'video' | 'audio' | 'image' | 'library'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -381,6 +382,17 @@ export const MediaPanel: React.FC = () => {
               {tab === 'all' ? 'Todos' : tab === 'video' ? 'Videos' : tab === 'audio' ? 'Audios' : 'Fotos'}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setActiveTab('library')}
+            className={`py-1 px-2 rounded text-center font-medium transition-colors ${
+              activeTab === 'library'
+                ? 'bg-purple-600 text-white font-semibold shadow-xs'
+                : 'bg-slate-900/60 text-purple-400 hover:text-purple-200 hover:bg-slate-800'
+            }`}
+          >
+            Plantillas
+          </button>
         </div>
       </div>
 
@@ -419,8 +431,13 @@ export const MediaPanel: React.FC = () => {
         </div>
       )}
 
-      {/* Lista / Grid de Activos */}
-      <div className="flex-1 overflow-y-auto p-2">
+      {/* Lista / Grid de Activos o Biblioteca de Recursos */}
+      {activeTab === 'library' ? (
+        <div className="flex-1 overflow-hidden">
+          <ResourceLibraryPanel />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-2">
         {filteredAssets.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4 border border-dashed border-slate-800/80 rounded-xl m-1">
             <UploadCloud className="w-8 h-8 text-slate-600 mb-2" />
@@ -589,6 +606,7 @@ export const MediaPanel: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Footer de Importación */}
       <div className="p-3 border-t border-slate-800 bg-slate-950/60 shrink-0 flex items-center gap-2">

@@ -30,8 +30,23 @@ import {
   immutableRemoveKeyframeFromClip,
   immutableUpdateTitleProperties,
   immutableSeparateAudioFromVideo,
-  immutableJoinClips
+  immutableJoinClips,
+  immutableUpdateClipColorWheels,
+  immutableUpdateClipColorCurves,
+  immutableUpdateClipMasks,
+  immutableUpdateClipChromaKey,
+  immutableUpdateClipBlendMode,
+  immutableUpdateClipAudioSuite
 } from '../model/operations';
+import type {
+  ColorWheels,
+  ColorCurves,
+  ClipMask,
+  ChromaKeyProperties,
+  BlendMode,
+  AudioEffectsSuite,
+  Lut3DConfig
+} from '../types/project';
 import { HistoryManager } from '../history/historyManager';
 import { IProjectStorageAdapter, WebIndexedDBStorageAdapter } from '../storage/projectStorage';
 import { relinkMissingMedia, createXtpArchive, extractXtpArchive } from '../xtp/xtpArchive';
@@ -97,6 +112,15 @@ export interface EditorState {
   updateTitleProperties: (clipId: string, titleProps: Partial<import('../types/project').TitleProperties>) => void;
   separateAudioFromVideo: (clipId: string) => void;
   joinClips: (firstClipId: string, secondClipId: string) => void;
+
+  // v3.0 Professional Suite Actions
+  updateClipColorWheels: (clipId: string, colorWheels: ColorWheels) => void;
+  updateClipColorCurves: (clipId: string, colorCurves: ColorCurves) => void;
+  updateClipLut3D: (clipId: string, lut3d: Partial<Lut3DConfig>) => void;
+  updateClipMasks: (clipId: string, masks: ClipMask[]) => void;
+  updateClipChromaKey: (clipId: string, chromaKey: Partial<ChromaKeyProperties>) => void;
+  updateClipBlendMode: (clipId: string, blendMode: BlendMode) => void;
+  updateClipAudioSuite: (clipId: string, audioSuite: Partial<AudioEffectsSuite>) => void;
 
   // Historial consistente (Undo / Redo)
   undo: () => void;
@@ -553,6 +577,80 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       canUndo: history.canUndo(),
       canRedo: history.canRedo()
     });
+  },
+
+  updateClipColorWheels: (clipId, colorWheels) => {
+    const next = immutableUpdateClipColorWheels(get().project, clipId, colorWheels);
+    history.push(next);
+    set({ project: next, isDirty: true, canUndo: history.canUndo(), canRedo: history.canRedo() });
+  },
+
+  updateClipColorCurves: (clipId, colorCurves) => {
+    const next = immutableUpdateClipColorCurves(get().project, clipId, colorCurves);
+    history.push(next);
+    set({ project: next, isDirty: true, canUndo: history.canUndo(), canRedo: history.canRedo() });
+  },
+
+  updateClipLut3D: (clipId, lut3d) => {
+    const current = get().project;
+    const next: KyvoraProject = {
+      ...current,
+      tracks: current.tracks.map(t => ({
+        ...t,
+        clips: t.clips.map(c => {
+          if (c.id !== clipId) return c;
+          const prevLut = c.lut3d || { isEnabled: true, name: 'Custom LUT', strength: 1.0 };
+          return { ...c, lut3d: { ...prevLut, ...lut3d } };
+        })
+      })),
+      updatedAt: new Date().toISOString()
+    };
+    history.push(next);
+    set({ project: next, isDirty: true, canUndo: history.canUndo(), canRedo: history.canRedo() });
+  },
+
+  updateClipMasks: (clipId, masks) => {
+    const next = immutableUpdateClipMasks(get().project, clipId, masks);
+    history.push(next);
+    set({ project: next, isDirty: true, canUndo: history.canUndo(), canRedo: history.canRedo() });
+  },
+
+  updateClipChromaKey: (clipId, chromaKey) => {
+    const current = get().project;
+    const clip = current.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
+    const existing = clip?.chromaKey || {
+      isEnabled: true,
+      keyColorHex: '#00FF00',
+      similarity: 0.3,
+      smoothness: 0.1,
+      spillSuppression: 0.5
+    };
+    const next = immutableUpdateClipChromaKey(current, clipId, { ...existing, ...chromaKey });
+    history.push(next);
+    set({ project: next, isDirty: true, canUndo: history.canUndo(), canRedo: history.canRedo() });
+  },
+
+  updateClipBlendMode: (clipId, blendMode) => {
+    const next = immutableUpdateClipBlendMode(get().project, clipId, blendMode);
+    history.push(next);
+    set({ project: next, isDirty: true, canUndo: history.canUndo(), canRedo: history.canRedo() });
+  },
+
+  updateClipAudioSuite: (clipId, audioSuite) => {
+    const current = get().project;
+    const clip = current.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
+    const existing = clip?.audioSuite || {
+      eqBands: [],
+      compressor: { isEnabled: false, thresholdDb: -18, ratio: 3, attackMs: 15, releaseMs: 120, makeupGainDb: 2, kneeDb: 4 },
+      limiter: { isEnabled: true, ceilingDb: -0.1, releaseMs: 50 },
+      noiseGate: { isEnabled: false, thresholdDb: -45, reductionDb: 24 },
+      reverb: { isEnabled: false, roomSize: 0.4, damping: 0.5, wetGainDb: -12, dryGainDb: 0 },
+      delay: { isEnabled: false, delayTimeMs: 250, feedback: 0.35, mix: 0.25 },
+      ducking: { isEnabled: false, thresholdDb: -22, duckingDb: -12, attackMs: 40, releaseMs: 350 }
+    };
+    const next = immutableUpdateClipAudioSuite(current, clipId, { ...existing, ...audioSuite });
+    history.push(next);
+    set({ project: next, isDirty: true, canUndo: history.canUndo(), canRedo: history.canRedo() });
   },
 
   undo: () => {
