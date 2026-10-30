@@ -31,7 +31,7 @@ import {
   ZoomOut,
   SlidersHorizontal
 } from 'lucide-react';
-import { isTauriEnvironment, getAssetSrc } from '../utils/fileDialogs';
+import { isTauriEnvironment, getAssetSrc, invokeTauriCommand } from '../utils/fileDialogs';
 
 export type ViewportScaleMode = 'fit' | 'cover' | 'actual';
 export type PreviewQualityMode = 'performance' | 'balanced' | 'high';
@@ -114,9 +114,8 @@ export const PreviewViewport: React.FC = () => {
 
     const loadOriginalMedia = async () => {
       try {
-        // En entorno Tauri de escritorio: streaming directo desde disco a través del protocolo nativo
-        // CERO consumo de memoria RAM y arranque inmediato incluso con archivos 4K pesados
-        if (activeAsset!.filePath && isTauriEnvironment()) {
+        // 1. Streaming directo desde disco a través del endpoint HTTP de streaming si hay ruta local
+        if (activeAsset!.filePath) {
           const streamUrl = getAssetSrc(activeAsset!.filePath);
           if (activeMediaUrl && activeMediaUrl.startsWith('blob:')) {
             URL.revokeObjectURL(activeMediaUrl);
@@ -128,7 +127,7 @@ export const PreviewViewport: React.FC = () => {
           return;
         }
 
-        // Fallback en entorno Web: carga desde IndexedDB
+        // 2. Si no hay ruta en disco (ej. importación pura por File en Web), cargar desde IndexedDB
         const record = await defaultWebMediaRepository.getMedia(activeAsset!.id);
         if (!isMounted) return;
 
@@ -382,9 +381,37 @@ export const PreviewViewport: React.FC = () => {
     }
   };
 
-  const handleVideoError = () => {
+  const handleVideoError = async () => {
     const video = videoRef.current;
     const mediaErr = video?.error;
+
+    // Auto-recuperación transparente: Si falló la ruta de streaming, cargar como Blob en memoria
+    if (activeAsset && activeMediaUrl && !activeMediaUrl.startsWith('blob:')) {
+      try {
+        if (activeAsset.filePath && isTauriEnvironment()) {
+          const binary = await invokeTauriCommand<number[] | Uint8Array>('read_project_binary_file', { filePath: activeAsset.filePath });
+          if (binary && (binary as any).length > 0) {
+            const blob = new Blob([new Uint8Array(binary)], { type: 'video/mp4' });
+            const blobUrl = URL.createObjectURL(blob);
+            setActiveMediaUrl(blobUrl);
+            setVideoError(null);
+            return;
+          }
+        }
+
+        const record = await defaultWebMediaRepository.getMedia(activeAsset.id);
+        if (record && record.data) {
+          const blob = new Blob([record.data as BlobPart], { type: record.mimeType || 'video/mp4' });
+          const blobUrl = URL.createObjectURL(blob);
+          setActiveMediaUrl(blobUrl);
+          setVideoError(null);
+          return;
+        }
+      } catch (fallbackErr) {
+        console.warn('Fallback a Blob URL falló:', fallbackErr);
+      }
+    }
+
     let desc = 'Error al reproducir el archivo de video.';
     if (mediaErr) {
       if (mediaErr.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
