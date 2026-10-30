@@ -331,70 +331,91 @@ export const MediaPanel: React.FC = () => {
         <div className="flex items-center gap-2">
           <FolderPlus className="w-4 h-4 text-blue-500" />
           <h2 className="text-xs font-semibold tracking-wider uppercase text-slate-200">
-            Medios ({project.assets.length})
+            {activeTab === 'library' ? 'Biblioteca' : `Medios (${project.assets.length})`}
           </h2>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-            title={viewMode === 'grid' ? 'Cambiar a vista de lista' : 'Cambiar a vista de cuadrícula'}
-            className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-          >
-            {viewMode === 'grid' ? <List className="w-3.5 h-3.5" /> : <Grid className="w-3.5 h-3.5" />}
-          </button>
-          <button
-            type="button"
-            onClick={handleImportFolder}
-            title="Importar carpeta completa..."
-            className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-blue-400 transition-colors"
-          >
-            <FolderOpen className="w-3.5 h-3.5" />
-          </button>
+          {activeTab !== 'library' && (
+            <>
+              <button
+                type="button"
+                onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                title={viewMode === 'grid' ? 'Cambiar a vista de lista' : 'Cambiar a vista de cuadrícula'}
+                className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                {viewMode === 'grid' ? <List className="w-3.5 h-3.5" /> : <Grid className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                type="button"
+                onClick={handleImportFolder}
+                title="Importar carpeta completa..."
+                className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-blue-400 transition-colors"
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Barra de Búsqueda y Filtros */}
-      <div className="p-2 border-b border-slate-800 space-y-2 shrink-0 bg-slate-950/40">
-        <div className="relative">
-          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar en la biblioteca..."
-            className="w-full bg-slate-900 border border-slate-800 rounded pl-8 pr-2 py-1 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
-          />
-        </div>
-
-        <div className="flex items-center gap-1 text-[10px]">
-          {(['all', 'video', 'audio', 'image'] as const).map(tab => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-1 rounded text-center font-medium capitalize transition-colors ${
-                activeTab === tab
-                  ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                  : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              {tab === 'all' ? 'Todos' : tab === 'video' ? 'Videos' : tab === 'audio' ? 'Audios' : 'Fotos'}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setActiveTab('library')}
-            className={`py-1 px-2 rounded text-center font-medium transition-colors ${
-              activeTab === 'library'
-                ? 'bg-purple-600 text-white font-semibold shadow-xs'
-                : 'bg-slate-900/60 text-purple-400 hover:text-purple-200 hover:bg-slate-800'
-            }`}
-          >
-            Plantillas
-          </button>
-        </div>
+      {/* Selector Superior: Medios vs Plantillas */}
+      <div className="grid grid-cols-2 p-1 bg-slate-950 border-b border-slate-800 text-[11px] font-medium shrink-0 gap-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab(activeTab === 'library' ? 'all' : activeTab)}
+          className={`py-1 rounded text-center transition ${
+            activeTab !== 'library'
+              ? 'bg-blue-600 text-white font-semibold shadow-xs'
+              : 'text-slate-400 hover:text-white hover:bg-slate-900'
+          }`}
+        >
+          Medios ({project.assets.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('library')}
+          className={`py-1 rounded text-center transition ${
+            activeTab === 'library'
+              ? 'bg-purple-600 text-white font-semibold shadow-xs'
+              : 'text-purple-400 hover:text-purple-200 hover:bg-slate-900'
+          }`}
+        >
+          Plantillas
+        </button>
       </div>
+
+      {/* Barra de Búsqueda y Filtros de Medios */}
+      {activeTab !== 'library' && (
+        <div className="p-2 border-b border-slate-800 space-y-2 shrink-0 bg-slate-950/40">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar medios..."
+              className="w-full bg-slate-900 border border-slate-800 rounded pl-8 pr-2 py-1 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-4 gap-1 text-[10px]">
+            {(['all', 'video', 'audio', 'image'] as const).map(tab => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`py-1 rounded text-center font-medium capitalize transition-colors truncate ${
+                  activeTab === tab
+                    ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                    : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                {tab === 'all' ? 'Todos' : tab === 'video' ? 'Videos' : tab === 'audio' ? 'Audios' : 'Fotos'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Notificaciones y Mensajes de Estado */}
       {errorMessage && (

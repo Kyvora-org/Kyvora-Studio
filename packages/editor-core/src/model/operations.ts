@@ -101,6 +101,11 @@ export function immutableAddClip(
   clip: Omit<TimelineClip, 'id' | 'trackId'>,
   customClipId?: string
 ): KyvoraProject {
+  const targetTrack = project.tracks.find(t => t.id === trackId);
+  if (targetTrack?.isLocked) {
+    return project; // Pista bloqueada: no se pueden agregar clips
+  }
+
   const newClip: TimelineClip = {
     ...clip,
     id: customClipId || `clip_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -129,6 +134,14 @@ export function immutableMoveClip(
   newTrackId: string,
   newStartSeconds: number
 ): KyvoraProject {
+  const sourceTrack = project.tracks.find(t => t.clips.some(c => c.id === clipId));
+  const destTrack = project.tracks.find(t => t.id === newTrackId);
+
+  // Si la pista origen o destino está bloqueada, impedir mover
+  if (sourceTrack?.isLocked || destTrack?.isLocked) {
+    return project;
+  }
+
   const safeStart = Math.max(0, newStartSeconds);
   let targetClip: TimelineClip | null = null;
 
@@ -170,6 +183,11 @@ export function immutableMoveClip(
 }
 
 export function immutableRemoveClip(project: KyvoraProject, clipId: string): KyvoraProject {
+  const sourceTrack = project.tracks.find(t => t.clips.some(c => c.id === clipId));
+  if (sourceTrack?.isLocked) {
+    return project; // Pista bloqueada: no se puede eliminar clip
+  }
+
   const updatedTracks = project.tracks.map(track => ({
     ...track,
     clips: track.clips.filter(c => c.id !== clipId)
@@ -192,6 +210,11 @@ export function immutableSplitClip(
   clipId: string,
   splitTimelineSeconds: number
 ): { project: KyvoraProject; leftClipId?: string; rightClipId?: string } {
+  const sourceTrack = project.tracks.find(t => t.clips.some(c => c.id === clipId));
+  if (sourceTrack?.isLocked) {
+    return { project }; // Pista bloqueada: no se puede dividir
+  }
+
   let splitPerformed = false;
   let leftClipId: string | undefined;
   let rightClipId: string | undefined;
@@ -282,6 +305,12 @@ export function immutableDuplicateClip(
   }
 
   const destinationTrackId = targetTrackId || sourceTrackId;
+  const destTrack = project.tracks.find(t => t.id === destinationTrackId);
+  const srcTrack = project.tracks.find(t => t.id === sourceTrackId);
+  if (destTrack?.isLocked || srcTrack?.isLocked) {
+    return { project }; // Pista bloqueada: no duplicar
+  }
+
   const newClipId = `clip_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
   const destinationStart = targetStartSeconds !== undefined 
     ? Math.max(0, targetStartSeconds)
@@ -326,6 +355,11 @@ export function immutableTrimClip(
   newTimelinePositionSeconds: number,
   minDurationSeconds = 0.1
 ): KyvoraProject {
+  const sourceTrack = project.tracks.find(t => t.clips.some(c => c.id === clipId));
+  if (sourceTrack?.isLocked) {
+    return project; // Pista bloqueada: no se puede recortar
+  }
+
   const frameDuration = 1 / (project.settings?.frameRate || 30);
   const safeMinDuration = Math.max(minDurationSeconds, frameDuration);
 
@@ -611,6 +645,17 @@ export function immutableToggleTrackMute(project: KyvoraProject, trackId: string
     tracks: project.tracks.map(t => {
       if (t.id !== trackId) return t;
       return { ...t, isMuted: !t.isMuted };
+    }),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function immutableToggleTrackSolo(project: KyvoraProject, trackId: string): KyvoraProject {
+  return {
+    ...project,
+    tracks: project.tracks.map(t => {
+      if (t.id !== trackId) return t;
+      return { ...t, isSolo: !t.isSolo };
     }),
     updatedAt: new Date().toISOString()
   };

@@ -162,3 +162,4 @@ export function getCanvasCompositeOperation(mode?: BlendMode): GlobalCompositeOp
       return 'source-over';
   }
 }
+

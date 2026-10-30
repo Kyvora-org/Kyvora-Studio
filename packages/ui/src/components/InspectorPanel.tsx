@@ -241,74 +241,65 @@ export const InspectorPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs de Configuración */}
-      <div className="grid grid-cols-4 border-b border-slate-800 bg-slate-950/60 p-1 gap-1 text-[10px] font-medium shrink-0">
+      {/* Tabs de Configuración en Cuadrícula 2x4 sin desbordamientos */}
+      <div className="grid grid-cols-4 border-b border-slate-800 bg-slate-950/70 p-1.5 gap-1 text-[10px] font-medium shrink-0">
         <button
           type="button"
           onClick={() => setActiveTab('transform')}
-          className={`py-1 rounded text-center transition-colors ${activeTab === 'transform' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:text-white'}`}
+          className={`py-1 px-1 rounded text-center transition-colors truncate ${activeTab === 'transform' ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
           Transform
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('effects')}
-          className={`py-1 rounded text-center transition-colors ${activeTab === 'effects' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:text-white'}`}
+          className={`py-1 px-1 rounded text-center transition-colors truncate ${activeTab === 'effects' ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
           FX ({selectedClip.effects?.length || 0})
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('audio')}
-          className={`py-1 rounded text-center transition-colors ${activeTab === 'audio' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:text-white'}`}
-        >
-          Audio
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('speed')}
-          className={`py-1 rounded text-center transition-colors ${activeTab === 'speed' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:text-white'}`}
-        >
-          Velocidad
-        </button>
-      </div>
-
-      {/* Subtabs secundarias */}
-      <div className="flex border-b border-slate-800 bg-slate-950/30 px-2 py-1 gap-2 text-[10px] font-medium shrink-0">
-        <button
-          type="button"
-          onClick={() => setActiveTab('transitions')}
-          className={`px-2 py-0.5 rounded transition-colors ${activeTab === 'transitions' ? 'bg-blue-900/50 text-blue-300 border border-blue-500/50' : 'text-slate-400 hover:text-white'}`}
-        >
-          Transiciones
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('keyframes')}
-          className={`px-2 py-0.5 rounded transition-colors ${activeTab === 'keyframes' ? 'bg-blue-900/50 text-blue-300 border border-blue-500/50' : 'text-slate-400 hover:text-white'}`}
-        >
-          Keyframes ({selectedClip.keyframes?.length || 0})
-        </button>
-        <button
-          type="button"
           onClick={() => setActiveTab('color')}
-          className={`px-2 py-0.5 rounded transition-colors ${activeTab === 'color' ? 'bg-blue-900/50 text-blue-300 border border-blue-500/50' : 'text-slate-400 hover:text-white'}`}
+          className={`py-1 px-1 rounded text-center transition-colors truncate ${activeTab === 'color' ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
           Color v3
         </button>
         <button
           type="button"
+          onClick={() => setActiveTab('audio')}
+          className={`py-1 px-1 rounded text-center transition-colors truncate ${activeTab === 'audio' ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
+        >
+          Audio
+        </button>
+
+        {/* Fila 2 */}
+        <button
+          type="button"
           onClick={() => setActiveTab('masks')}
-          className={`px-2 py-0.5 rounded transition-colors ${activeTab === 'masks' ? 'bg-blue-900/50 text-blue-300 border border-blue-500/50' : 'text-slate-400 hover:text-white'}`}
+          className={`py-1 px-1 rounded text-center transition-colors truncate ${activeTab === 'masks' ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
           Máscaras
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('text')}
-          className={`px-2 py-0.5 rounded transition-colors ${activeTab === 'text' ? 'bg-blue-900/50 text-blue-300 border border-blue-500/50' : 'text-slate-400 hover:text-white'}`}
+          onClick={() => setActiveTab('transitions')}
+          className={`py-1 px-1 rounded text-center transition-colors truncate ${activeTab === 'transitions' ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
         >
-          Título / Texto
+          Transición
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('keyframes')}
+          className={`py-1 px-1 rounded text-center transition-colors truncate ${activeTab === 'keyframes' ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
+        >
+          Keyframes
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab(selectedClip.titleProperties ? 'text' : 'speed')}
+          className={`py-1 px-1 rounded text-center transition-colors truncate ${(activeTab === 'speed' || activeTab === 'text') ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
+        >
+          {selectedClip.titleProperties ? 'Texto' : 'Velocidad'}
         </button>
       </div>
 

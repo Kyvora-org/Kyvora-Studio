@@ -30,17 +30,17 @@ describe('KYVORA STUDIO v3.0 - Compositing, Masks & Chroma Key Suite', () => {
       };
 
       // Centro exacto (50, 50) debe tener opacidad 1.0
-      const centerAlpha = evaluateMaskAtPoint(rectMask, 50, 50, 1000, 1000);
+      const centerAlpha = evaluateMaskAtPoint(rectMask, 50, 50);
       expect(centerAlpha).toBe(1.0);
 
       // Fuera del rectángulo (10, 10) debe ser 0.0
-      const outsideAlpha = evaluateMaskAtPoint(rectMask, 10, 10, 1000, 1000);
+      const outsideAlpha = evaluateMaskAtPoint(rectMask, 10, 10);
       expect(outsideAlpha).toBe(0.0);
 
       // Si se invierte la máscara, el exterior pasa a 1.0 y el interior a 0.0
       const invertedMask = { ...rectMask, isInverted: true };
-      expect(evaluateMaskAtPoint(invertedMask, 50, 50, 1000, 1000)).toBe(0.0);
-      expect(evaluateMaskAtPoint(invertedMask, 10, 10, 1000, 1000)).toBe(1.0);
+      expect(evaluateMaskAtPoint(invertedMask, 50, 50)).toBe(0.0);
+      expect(evaluateMaskAtPoint(invertedMask, 10, 10)).toBe(1.0);
     });
 
     it('evalúa algoritmo Ray-Casting en polígonos arbitrarios complejos', () => {

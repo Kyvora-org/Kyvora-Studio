@@ -22,6 +22,7 @@ import {
   immutableToggleTrackVisibility,
   immutableToggleTrackLock,
   immutableToggleTrackMute,
+  immutableToggleTrackSolo,
   immutableUpdateClipAudio,
   immutableUpdateClipSpeed,
   immutableAddTransitionToClip,
@@ -103,6 +104,7 @@ export interface EditorState {
   toggleTrackVisibility: (trackId: string) => void;
   toggleTrackLock: (trackId: string) => void;
   toggleTrackMute: (trackId: string) => void;
+  toggleTrackSolo: (trackId: string) => void;
   updateClipAudio: (clipId: string, audio: Partial<import('../types/project').AudioProperties>) => void;
   updateClipSpeed: (clipId: string, speed: Partial<import('../types/project').SpeedProperties>) => void;
   addTransitionToClip: (clipId: string, transition: import('../types/project').ClipTransition) => void;
@@ -311,7 +313,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   removeClip: (clipId) => {
-    const nextProject = immutableRemoveClip(get().project, clipId);
+    const prevProject = get().project;
+    const nextProject = immutableRemoveClip(prevProject, clipId);
+    if (nextProject === prevProject) return; // Pista bloqueada o clip no encontrado
     history.push(nextProject);
     set({
       project: nextProject,
@@ -364,7 +368,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   trimClip: (clipId, edge, newTimelinePositionSeconds) => {
-    const nextProject = immutableTrimClip(get().project, clipId, edge, newTimelinePositionSeconds);
+    const prevProject = get().project;
+    const nextProject = immutableTrimClip(prevProject, clipId, edge, newTimelinePositionSeconds);
+    if (nextProject === prevProject) return; // Pista bloqueada
     history.push(nextProject);
     set({
       project: nextProject,
@@ -471,6 +477,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   toggleTrackMute: (trackId) => {
     const nextProject = immutableToggleTrackMute(get().project, trackId);
+    history.push(nextProject);
+    set({
+      project: nextProject,
+      isDirty: true,
+      canUndo: history.canUndo(),
+      canRedo: history.canRedo()
+    });
+  },
+
+  toggleTrackSolo: (trackId) => {
+    const nextProject = immutableToggleTrackSolo(get().project, trackId);
     history.push(nextProject);
     set({
       project: nextProject,

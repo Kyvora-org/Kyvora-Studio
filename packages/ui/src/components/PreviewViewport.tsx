@@ -36,6 +36,86 @@ import { isTauriEnvironment, getAssetSrc, invokeTauriCommand } from '../utils/fi
 export type ViewportScaleMode = 'fit' | 'cover' | 'actual';
 export type PreviewQualityMode = 'performance' | 'balanced' | 'high';
 
+interface AudioTrackPlayerProps {
+  clip: TimelineClip;
+  asset: MediaAsset;
+  isPlaying: boolean;
+  currentTimeSeconds: number;
+  volume: number;
+  isMuted: boolean;
+}
+
+const AudioTrackPlayer: React.FC<AudioTrackPlayerProps> = ({
+  clip,
+  asset,
+  isPlaying,
+  currentTimeSeconds,
+  volume,
+  isMuted
+}) => {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (asset.filePath) {
+      setAudioUrl(getAssetSrc(asset.filePath));
+      return;
+    }
+    defaultWebMediaRepository.getMedia(asset.id).then(rec => {
+      if (!isMounted || !rec || !rec.data) return;
+      const blob = new Blob([rec.data as BlobPart], { type: rec.mimeType || 'audio/mpeg' });
+      setAudioUrl(URL.createObjectURL(blob));
+    }).catch(() => {});
+
+    return () => {
+      isMounted = false;
+      if (audioUrl && audioUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [asset.id, asset.filePath]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.muted = isMuted;
+    audio.volume = isMuted ? 0 : Math.max(0, Math.min(1, volume));
+  }, [isMuted, volume]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const clipLocalSeconds = (currentTimeSeconds - clip.startInTimelineSeconds) + clip.sourceStartSeconds;
+    const clampedLocalTime = Math.max(0, Math.min(clipLocalSeconds, clip.durationSeconds + clip.sourceStartSeconds));
+
+    if (Math.abs(audio.currentTime - clampedLocalTime) > 0.08) {
+      audio.currentTime = clampedLocalTime;
+    }
+
+    if (isPlaying) {
+      if (clip.speed?.playbackSpeed) {
+        audio.playbackRate = clip.speed.playbackSpeed;
+      }
+      audio.play().catch(() => {});
+    } else {
+      audio.pause();
+    }
+  }, [isPlaying, currentTimeSeconds, clip.startInTimelineSeconds, clip.sourceStartSeconds, clip.durationSeconds, clip.speed?.playbackSpeed]);
+
+  if (!audioUrl) return null;
+
+  return (
+    <audio
+      ref={audioRef}
+      src={audioUrl}
+      preload="auto"
+      className="hidden"
+    />
+  );
+};
+
 export const PreviewViewport: React.FC = () => {
   const { 
     project, 
@@ -65,21 +145,88 @@ export const PreviewViewport: React.FC = () => {
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
 
-  // Determinar clip y asset de video activo en el cabezal de reproducción
+  // Determinar clip, asset y pista de video activa en el cabezal de reproducción
   let activeVideoClip: TimelineClip | null = null;
   let activeAsset: MediaAsset | null = null;
+  let activeVideoTrack: import('@kyvora/editor-core').TimelineTrack | null = null;
+
+  const anyVideoSolo = project.tracks.some(t => t.type === 'video' && t.isSolo);
+
   for (const track of project.tracks) {
     if (track.type === 'video') {
+      // Si la pista está oculta (isVisible === false), ignorarla en el monitor
+      if (track.isVisible === false) continue;
+      // Si hay Solo activo en video, reproducir únicamente pistas con solo
+      if (anyVideoSolo && !track.isSolo) continue;
+
       const found = track.clips.find(
         c => currentTimeSeconds >= c.startInTimelineSeconds && currentTimeSeconds < (c.startInTimelineSeconds + c.durationSeconds)
       );
       if (found) {
         activeVideoClip = found;
         activeAsset = project.assets.find(a => a.id === found.assetId) || null;
+        activeVideoTrack = track;
         break;
       }
     }
   }
+
+  // Sincronización de audio para la pista de video (Mute, Solo y Volumen)
+  const hasAnyAudioOrVideoSolo = project.tracks.some(t => t.isSolo);
+  const isVideoTrackMuted = activeVideoTrack
+    ? (Boolean(activeVideoTrack.isMuted) || (hasAnyAudioOrVideoSolo && !activeVideoTrack.isSolo))
+    : false;
+  const isClipAudioMuted = Boolean(activeVideoClip?.audio?.isMuted);
+  const clipVolume = activeVideoClip?.audio?.volume ?? 1.0;
+  const shouldMuteVideoAudio = isVideoTrackMuted || isClipAudioMuted;
+  const effectiveVideoVolume = shouldMuteVideoAudio ? 0 : Math.max(0, Math.min(1, clipVolume));
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = shouldMuteVideoAudio;
+    video.volume = effectiveVideoVolume;
+  }, [shouldMuteVideoAudio, effectiveVideoVolume, isVideoLoaded]);
+
+  // Identificar clips de audio dedicados activos en el cabezal de reproducción
+  const activeAudioClips = useMemo(() => {
+    const list: Array<{
+      clip: TimelineClip;
+      asset: MediaAsset;
+      track: import('@kyvora/editor-core').TimelineTrack;
+      effectiveVolume: number;
+      isMuted: boolean;
+    }> = [];
+
+    const hasAnyAudioSolo = project.tracks.some(t => t.type === 'audio' && t.isSolo);
+
+    for (const track of project.tracks) {
+      if (track.type !== 'audio') continue;
+      if (hasAnyAudioSolo && !track.isSolo) continue;
+
+      const isTrackMuted = track.isMuted;
+
+      const clip = track.clips.find(
+        c => currentTimeSeconds >= c.startInTimelineSeconds && currentTimeSeconds < (c.startInTimelineSeconds + c.durationSeconds)
+      );
+
+      if (clip) {
+        const asset = project.assets.find(a => a.id === clip.assetId);
+        if (asset) {
+          const isMuted = isTrackMuted || Boolean(clip.audio?.isMuted);
+          const vol = clip.audio?.volume ?? 1.0;
+          list.push({
+            clip,
+            asset,
+            track,
+            effectiveVolume: isMuted ? 0 : Math.max(0, Math.min(1, vol)),
+            isMuted
+          });
+        }
+      }
+    }
+    return list;
+  }, [project.tracks, project.assets, currentTimeSeconds]);
 
   // Monitor de Origen: Si no hay clip en la línea de tiempo pero hay un activo seleccionado en la biblioteca
   const selectedAssetId = useEditorStore(state => state.selectedAssetId);
@@ -466,8 +613,12 @@ export const PreviewViewport: React.FC = () => {
   // Clips de títulos o texto activos en el cabezal de reproducción
   const activeTitleClips = useMemo(() => {
     const list: TimelineClip[] = [];
+    const anyTextSolo = project.tracks.some(t => (t.type === 'text' || t.type === 'overlay') && t.isSolo);
+
     for (const track of project.tracks) {
-      if (track.isMuted) continue;
+      if (track.isVisible === false) continue;
+      if (anyTextSolo && !track.isSolo) continue;
+
       for (const clip of track.clips) {
         if (
           currentTimeSeconds >= clip.startInTimelineSeconds &&
@@ -785,6 +936,19 @@ export const PreviewViewport: React.FC = () => {
               style={getVideoTransformStyle()}
             />
           )}
+
+          {/* REPRODUCTORES PARA PISTAS DE AUDIO DEDICADAS */}
+          {activeAudioClips.map(({ clip, asset, effectiveVolume, isMuted }) => (
+            <AudioTrackPlayer
+              key={clip.id}
+              clip={clip}
+              asset={asset}
+              isPlaying={isPlaying}
+              currentTimeSeconds={currentTimeSeconds}
+              volume={effectiveVolume}
+              isMuted={isMuted}
+            />
+          ))}
 
           {/* VISUALIZADOR PARA IMÁGENES ORIGINALES */}
           {activeMediaUrl && activeAsset?.type === 'image' && (

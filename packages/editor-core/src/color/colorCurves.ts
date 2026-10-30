@@ -178,3 +178,4 @@ export function applyCurvesToRgb(
 
   return [outR, outG, outB];
 }
+

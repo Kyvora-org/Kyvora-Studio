@@ -23,6 +23,7 @@ export const ColorGradingPanel: React.FC<ColorGradingPanelProps> = ({
   onUpdateLut
 }) => {
   const [subTab, setSubTab] = useState<'wheels' | 'curves' | 'luts' | 'scopes'>('wheels');
+  const [wheelView, setWheelView] = useState<'lift' | 'gamma' | 'gain' | 'offset' | 'all'>('lift');
   const [activeCurveChannel, setActiveCurveChannel] = useState<'master' | 'red' | 'green' | 'blue'>('master');
   const [beforeAfterMode, setBeforeAfterMode] = useState<'normal' | 'split' | 'bypass'>('normal');
 
@@ -122,10 +123,10 @@ export const ColorGradingPanel: React.FC<ColorGradingPanelProps> = ({
 
       {/* 1. Sub-Tab: Ruedas Lift / Gamma / Gain / Offset */}
       {subTab === 'wheels' && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
-              Gradación Primaria (Lift / Gamma / Gain)
+              Gradación Primaria (LGG)
             </span>
             <button
               onClick={resetWheels}
@@ -135,202 +136,301 @@ export const ColorGradingPanel: React.FC<ColorGradingPanelProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* Selector de Rueda Primaria */}
+          <div className="flex bg-slate-900 rounded border border-slate-800 p-0.5 text-[10px] font-medium">
+            <button
+              type="button"
+              onClick={() => setWheelView('lift')}
+              className={`flex-1 py-1 rounded text-center transition ${wheelView === 'lift' ? 'bg-sky-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}`}
+            >
+              Lift (Sombras)
+            </button>
+            <button
+              type="button"
+              onClick={() => setWheelView('gamma')}
+              className={`flex-1 py-1 rounded text-center transition ${wheelView === 'gamma' ? 'bg-emerald-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}`}
+            >
+              Gamma (Medios)
+            </button>
+            <button
+              type="button"
+              onClick={() => setWheelView('gain')}
+              className={`flex-1 py-1 rounded text-center transition ${wheelView === 'gain' ? 'bg-amber-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}`}
+            >
+              Gain (Luces)
+            </button>
+            <button
+              type="button"
+              onClick={() => setWheelView('offset')}
+              className={`flex-1 py-1 rounded text-center transition ${wheelView === 'offset' ? 'bg-purple-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}`}
+            >
+              Offset
+            </button>
+            <button
+              type="button"
+              onClick={() => setWheelView('all')}
+              className={`px-2 py-1 rounded text-center transition ${wheelView === 'all' ? 'bg-slate-700 text-white font-semibold' : 'text-slate-400 hover:text-white'}`}
+            >
+              Todos
+            </button>
+          </div>
+
+          <div className="space-y-3">
             {/* LIFT (Sombras) */}
-            <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800/80 space-y-2">
-              <div className="text-[11px] font-semibold text-sky-400 flex justify-between">
-                <span>Lift (Sombras)</span>
-                <span className="font-mono text-[10px] text-slate-400">Y: {wheels.lift.y.toFixed(2)}</span>
+            {(wheelView === 'lift' || wheelView === 'all') && (
+              <div className="bg-slate-900/60 p-3 rounded border border-slate-800/80 space-y-2">
+                <div className="text-[11px] font-semibold text-sky-400 flex justify-between items-center">
+                  <span>Lift (Sombras)</span>
+                  <span className="font-mono text-[10px] text-slate-400">Y: {wheels.lift.y.toFixed(2)}</span>
+                </div>
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-red-400 font-mono text-[10px]">R</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.lift.r}
+                      onChange={(e) => handleWheelChange('lift', 'r', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-red-500 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.lift.r.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-green-400 font-mono text-[10px]">G</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.lift.g}
+                      onChange={(e) => handleWheelChange('lift', 'g', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-green-500 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.lift.g.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-blue-400 font-mono text-[10px]">B</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.lift.b}
+                      onChange={(e) => handleWheelChange('lift', 'b', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-blue-500 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.lift.b.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-amber-300 font-mono text-[10px]">Y</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.lift.y}
+                      onChange={(e) => handleWheelChange('lift', 'y', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-amber-400 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.lift.y.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 text-red-400 font-mono text-[10px]">R</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.01"
-                    value={wheels.lift.r}
-                    onChange={(e) => handleWheelChange('lift', 'r', parseFloat(e.target.value))}
-                    className="flex-1 h-1 bg-slate-800 rounded accent-red-500 cursor-pointer"
-                  />
-                  <span className="w-7 font-mono text-[10px] text-right">{wheels.lift.r.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 text-green-400 font-mono text-[10px]">G</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.01"
-                    value={wheels.lift.g}
-                    onChange={(e) => handleWheelChange('lift', 'g', parseFloat(e.target.value))}
-                    className="flex-1 h-1 bg-slate-800 rounded accent-green-500 cursor-pointer"
-                  />
-                  <span className="w-7 font-mono text-[10px] text-right">{wheels.lift.g.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 text-blue-400 font-mono text-[10px]">B</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.01"
-                    value={wheels.lift.b}
-                    onChange={(e) => handleWheelChange('lift', 'b', parseFloat(e.target.value))}
-                    className="flex-1 h-1 bg-slate-800 rounded accent-blue-500 cursor-pointer"
-                  />
-                  <span className="w-7 font-mono text-[10px] text-right">{wheels.lift.b.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
+            )}
 
             {/* GAMMA (Medios) */}
-            <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800/80 space-y-2">
-              <div className="text-[11px] font-semibold text-emerald-400 flex justify-between">
-                <span>Gamma (Medios)</span>
-                <span className="font-mono text-[10px] text-slate-400">Y: {wheels.gamma.y.toFixed(2)}</span>
+            {(wheelView === 'gamma' || wheelView === 'all') && (
+              <div className="bg-slate-900/60 p-3 rounded border border-slate-800/80 space-y-2">
+                <div className="text-[11px] font-semibold text-emerald-400 flex justify-between items-center">
+                  <span>Gamma (Medios)</span>
+                  <span className="font-mono text-[10px] text-slate-400">Y: {wheels.gamma.y.toFixed(2)}</span>
+                </div>
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-red-400 font-mono text-[10px]">R</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.gamma.r}
+                      onChange={(e) => handleWheelChange('gamma', 'r', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-red-500 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.gamma.r.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-green-400 font-mono text-[10px]">G</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.gamma.g}
+                      onChange={(e) => handleWheelChange('gamma', 'g', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-green-500 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.gamma.g.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-blue-400 font-mono text-[10px]">B</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.gamma.b}
+                      onChange={(e) => handleWheelChange('gamma', 'b', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-blue-500 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.gamma.b.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-amber-300 font-mono text-[10px]">Y</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.gamma.y}
+                      onChange={(e) => handleWheelChange('gamma', 'y', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-amber-400 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.gamma.y.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 text-red-400 font-mono text-[10px]">R</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.01"
-                    value={wheels.gamma.r}
-                    onChange={(e) => handleWheelChange('gamma', 'r', parseFloat(e.target.value))}
-                    className="flex-1 h-1 bg-slate-800 rounded accent-red-500 cursor-pointer"
-                  />
-                  <span className="w-7 font-mono text-[10px] text-right">{wheels.gamma.r.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 text-green-400 font-mono text-[10px]">G</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.01"
-                    value={wheels.gamma.g}
-                    onChange={(e) => handleWheelChange('gamma', 'g', parseFloat(e.target.value))}
-                    className="flex-1 h-1 bg-slate-800 rounded accent-green-500 cursor-pointer"
-                  />
-                  <span className="w-7 font-mono text-[10px] text-right">{wheels.gamma.g.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 text-blue-400 font-mono text-[10px]">B</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.01"
-                    value={wheels.gamma.b}
-                    onChange={(e) => handleWheelChange('gamma', 'b', parseFloat(e.target.value))}
-                    className="flex-1 h-1 bg-slate-800 rounded accent-blue-500 cursor-pointer"
-                  />
-                  <span className="w-7 font-mono text-[10px] text-right">{wheels.gamma.b.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
+            )}
 
             {/* GAIN (Luces) */}
-            <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800/80 space-y-2">
-              <div className="text-[11px] font-semibold text-amber-400 flex justify-between">
-                <span>Gain (Luces)</span>
-                <span className="font-mono text-[10px] text-slate-400">Y: {wheels.gain.y.toFixed(2)}</span>
+            {(wheelView === 'gain' || wheelView === 'all') && (
+              <div className="bg-slate-900/60 p-3 rounded border border-slate-800/80 space-y-2">
+                <div className="text-[11px] font-semibold text-amber-400 flex justify-between items-center">
+                  <span>Gain (Luces)</span>
+                  <span className="font-mono text-[10px] text-slate-400">Y: {wheels.gain.y.toFixed(2)}</span>
+                </div>
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-red-400 font-mono text-[10px]">R</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.gain.r}
+                      onChange={(e) => handleWheelChange('gain', 'r', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-red-500 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.gain.r.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-green-400 font-mono text-[10px]">G</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.gain.g}
+                      onChange={(e) => handleWheelChange('gain', 'g', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-green-500 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.gain.g.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-blue-400 font-mono text-[10px]">B</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.gain.b}
+                      onChange={(e) => handleWheelChange('gain', 'b', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-blue-500 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.gain.b.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-amber-300 font-mono text-[10px]">Y</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.gain.y}
+                      onChange={(e) => handleWheelChange('gain', 'y', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-amber-400 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.gain.y.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 text-red-400 font-mono text-[10px]">R</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.01"
-                    value={wheels.gain.r}
-                    onChange={(e) => handleWheelChange('gain', 'r', parseFloat(e.target.value))}
-                    className="flex-1 h-1 bg-slate-800 rounded accent-red-500 cursor-pointer"
-                  />
-                  <span className="w-7 font-mono text-[10px] text-right">{wheels.gain.r.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 text-green-400 font-mono text-[10px]">G</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.01"
-                    value={wheels.gain.g}
-                    onChange={(e) => handleWheelChange('gain', 'g', parseFloat(e.target.value))}
-                    className="flex-1 h-1 bg-slate-800 rounded accent-green-500 cursor-pointer"
-                  />
-                  <span className="w-7 font-mono text-[10px] text-right">{wheels.gain.g.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 text-blue-400 font-mono text-[10px]">B</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.01"
-                    value={wheels.gain.b}
-                    onChange={(e) => handleWheelChange('gain', 'b', parseFloat(e.target.value))}
-                    className="flex-1 h-1 bg-slate-800 rounded accent-blue-500 cursor-pointer"
-                  />
-                  <span className="w-7 font-mono text-[10px] text-right">{wheels.gain.b.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
+            )}
 
             {/* OFFSET (Global) */}
-            <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800/80 space-y-2">
-              <div className="text-[11px] font-semibold text-purple-400 flex justify-between">
-                <span>Offset Global</span>
-                <span className="font-mono text-[10px] text-slate-400">Y: {wheels.offset.y.toFixed(2)}</span>
+            {(wheelView === 'offset' || wheelView === 'all') && (
+              <div className="bg-slate-900/60 p-3 rounded border border-slate-800/80 space-y-2">
+                <div className="text-[11px] font-semibold text-purple-400 flex justify-between items-center">
+                  <span>Offset Global</span>
+                  <span className="font-mono text-[10px] text-slate-400">Y: {wheels.offset.y.toFixed(2)}</span>
+                </div>
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-red-400 font-mono text-[10px]">R</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.offset.r}
+                      onChange={(e) => handleWheelChange('offset', 'r', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-red-500 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.offset.r.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-green-400 font-mono text-[10px]">G</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.offset.g}
+                      onChange={(e) => handleWheelChange('offset', 'g', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-green-500 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.offset.g.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-blue-400 font-mono text-[10px]">B</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.offset.b}
+                      onChange={(e) => handleWheelChange('offset', 'b', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-blue-500 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.offset.b.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 text-amber-300 font-mono text-[10px]">Y</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      value={wheels.offset.y}
+                      onChange={(e) => handleWheelChange('offset', 'y', parseFloat(e.target.value))}
+                      className="flex-1 h-1 bg-slate-800 rounded accent-amber-400 cursor-pointer"
+                    />
+                    <span className="w-8 font-mono text-[10px] text-right">{wheels.offset.y.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 text-red-400 font-mono text-[10px]">R</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.01"
-                    value={wheels.offset.r}
-                    onChange={(e) => handleWheelChange('offset', 'r', parseFloat(e.target.value))}
-                    className="flex-1 h-1 bg-slate-800 rounded accent-red-500 cursor-pointer"
-                  />
-                  <span className="w-7 font-mono text-[10px] text-right">{wheels.offset.r.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 text-green-400 font-mono text-[10px]">G</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.01"
-                    value={wheels.offset.g}
-                    onChange={(e) => handleWheelChange('offset', 'g', parseFloat(e.target.value))}
-                    className="flex-1 h-1 bg-slate-800 rounded accent-green-500 cursor-pointer"
-                  />
-                  <span className="w-7 font-mono text-[10px] text-right">{wheels.offset.g.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 text-blue-400 font-mono text-[10px]">B</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.01"
-                    value={wheels.offset.b}
-                    onChange={(e) => handleWheelChange('offset', 'b', parseFloat(e.target.value))}
-                    className="flex-1 h-1 bg-slate-800 rounded accent-blue-500 cursor-pointer"
-                  />
-                  <span className="w-7 font-mono text-[10px] text-right">{wheels.offset.b.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}

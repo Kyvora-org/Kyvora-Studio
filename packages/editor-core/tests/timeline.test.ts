@@ -5,6 +5,12 @@ import {
   immutableMoveClip, 
   immutableSplitClip, 
   immutableTrimClip, 
+  immutableDuplicateClip,
+  immutableRemoveClip,
+  immutableToggleTrackVisibility,
+  immutableToggleTrackMute,
+  immutableToggleTrackLock,
+  immutableToggleTrackSolo,
   findSnapTime,
   useEditorStore 
 } from '../src/index';
@@ -256,6 +262,92 @@ describe('Línea de Tiempo Funcional de Kyvora Studio', () => {
       expect(useEditorStore.getState().zoomLevel).toBe(100);
       const timeInSecZoom100 = 100 / useEditorStore.getState().zoomLevel;
       expect(timeInSecZoom100).toBe(1.0);
+    });
+  });
+
+  describe('Control Funcional de Pistas: Mute, Solo, Visibilidad y Bloqueo', () => {
+    it('alterna visibilidad, silencio y modo solo de pistas', () => {
+      const track1 = project.tracks[0].id;
+
+      // Visibilidad
+      const hidden = immutableToggleTrackVisibility(project, track1);
+      expect(hidden.tracks[0].isVisible).toBe(false);
+
+      const shown = immutableToggleTrackVisibility(hidden, track1);
+      expect(shown.tracks[0].isVisible).toBe(true);
+
+      // Mute
+      const muted = immutableToggleTrackMute(project, track1);
+      expect(muted.tracks[0].isMuted).toBe(true);
+
+      const unmuted = immutableToggleTrackMute(muted, track1);
+      expect(unmuted.tracks[0].isMuted).toBe(false);
+
+      // Solo
+      const soloed = immutableToggleTrackSolo(project, track1);
+      expect(soloed.tracks[0].isSolo).toBe(true);
+
+      const unSoloed = immutableToggleTrackSolo(soloed, track1);
+      expect(unSoloed.tracks[0].isSolo).toBe(false);
+    });
+
+    it('una pista bloqueada impide añadir, mover, dividir, recortar, duplicar y eliminar clips', () => {
+      const track1 = project.tracks[0].id;
+      // Añadir un clip inicial
+      let prj = immutableAddClip(project, track1, {
+        assetId: 'asset_test',
+        name: 'Clip Protegido',
+        startInTimelineSeconds: 5,
+        durationSeconds: 10,
+        sourceStartSeconds: 0,
+        effects: []
+      }, 'clip_locked_test');
+
+      expect(prj.tracks[0].clips.length).toBe(1);
+
+      // Bloquear pista
+      prj = immutableToggleTrackLock(prj, track1);
+      expect(prj.tracks[0].isLocked).toBe(true);
+
+      // 1. Impedir añadir clips
+      const addAttempt = immutableAddClip(prj, track1, {
+        assetId: 'asset_fail',
+        name: 'No Debería Entrar',
+        startInTimelineSeconds: 20,
+        durationSeconds: 5,
+        sourceStartSeconds: 0,
+        effects: []
+      });
+      expect(addAttempt.tracks[0].clips.length).toBe(1);
+
+      // 2. Impedir mover clip
+      const moveAttempt = immutableMoveClip(prj, 'clip_locked_test', track1, 15);
+      expect(moveAttempt.tracks[0].clips[0].startInTimelineSeconds).toBe(5);
+
+      // 3. Impedir dividir clip
+      const splitAttempt = immutableSplitClip(prj, 'clip_locked_test', 8);
+      expect(splitAttempt.leftClipId).toBeUndefined();
+      expect(splitAttempt.project.tracks[0].clips.length).toBe(1);
+
+      // 4. Impedir recortar clip
+      const trimAttempt = immutableTrimClip(prj, 'clip_locked_test', 'start', 7);
+      expect(trimAttempt.tracks[0].clips[0].startInTimelineSeconds).toBe(5);
+
+      // 5. Impedir duplicar clip
+      const dupAttempt = immutableDuplicateClip(prj, 'clip_locked_test');
+      expect(dupAttempt.newClipId).toBeUndefined();
+      expect(dupAttempt.project.tracks[0].clips.length).toBe(1);
+
+      // 6. Impedir eliminar clip
+      const removeAttempt = immutableRemoveClip(prj, 'clip_locked_test');
+      expect(removeAttempt.tracks[0].clips.length).toBe(1);
+
+      // Desbloquear pista y verificar que las operaciones vuelven a estar habilitadas
+      prj = immutableToggleTrackLock(prj, track1);
+      expect(prj.tracks[0].isLocked).toBe(false);
+
+      const unlockedTrim = immutableTrimClip(prj, 'clip_locked_test', 'start', 7);
+      expect(unlockedTrim.tracks[0].clips[0].startInTimelineSeconds).toBe(7);
     });
   });
 });

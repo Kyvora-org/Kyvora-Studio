@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   CubicBezier,
-  BEZIER_PRESETS,
   createBezierFromPreset,
-  evaluateKeyframeProgress,
   interpolatePropertyAtTimeV3,
   TimelineClip,
   Keyframe

@@ -42,6 +42,7 @@ export const Timeline: React.FC = () => {
     toggleTrackVisibility,
     toggleTrackLock,
     toggleTrackMute,
+    toggleTrackSolo,
     splitClipAtPlayhead,
     trimClip,
     duplicateClip,
@@ -172,7 +173,7 @@ export const Timeline: React.FC = () => {
             const laneRect = lane.getBoundingClientRect();
             if (e.clientY >= laneRect.top && e.clientY <= laneRect.bottom) {
               const candidateTrack = project.tracks[idx];
-              if (candidateTrack && (!sourceTrack || candidateTrack.type === sourceTrack.type)) {
+              if (candidateTrack && !candidateTrack.isLocked && (!sourceTrack || candidateTrack.type === sourceTrack.type)) {
                 targetTrackId = candidateTrack.id;
               }
             }
@@ -231,6 +232,20 @@ export const Timeline: React.FC = () => {
     };
   }, [activeDrag, activeTrim, zoomLevel, isSnappingEnabled, project.tracks, moveClip, trimClip, getSnapPoints]);
 
+  // Clip seleccionado y estado de bloqueo de su pista
+  let activeSelectedClip = null;
+  let isSelectedClipTrackLocked = false;
+  if (selectedClipId) {
+    for (const t of project.tracks) {
+      const found = t.clips.find(c => c.id === selectedClipId);
+      if (found) {
+        activeSelectedClip = found;
+        isSelectedClipTrackLocked = Boolean(t.isLocked);
+        break;
+      }
+    }
+  }
+
   // Atajos de teclado
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -238,12 +253,15 @@ export const Timeline: React.FC = () => {
       if (activeTag === 'input' || activeTag === 'textarea') return;
 
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedClipId) {
+        if (isSelectedClipTrackLocked) return;
         e.preventDefault();
         removeClip(selectedClipId);
       } else if (e.key === 's' || e.key === 'S' || e.key === 'c' || e.key === 'C') {
+        if (isSelectedClipTrackLocked) return;
         e.preventDefault();
         splitClipAtPlayhead();
       } else if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && selectedClipId) {
+        if (isSelectedClipTrackLocked) return;
         e.preventDefault();
         duplicateClip(selectedClipId);
       } else if (e.key === 'ArrowLeft') {
@@ -257,31 +275,20 @@ export const Timeline: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedClipId, removeClip, splitClipAtPlayhead, duplicateClip, currentTimeSeconds]);
-
-  // Clip seleccionado
-  let activeSelectedClip = null;
-  if (selectedClipId) {
-    for (const t of project.tracks) {
-      const found = t.clips.find(c => c.id === selectedClipId);
-      if (found) {
-        activeSelectedClip = found;
-        break;
-      }
-    }
-  }
+  }, [selectedClipId, isSelectedClipTrackLocked, removeClip, splitClipAtPlayhead, duplicateClip, currentTimeSeconds]);
 
   return (
     <div className="h-72 shrink-0 bg-[#070A0F] border-t border-slate-800 flex flex-col select-none relative">
       {/* Timeline Control Toolbar */}
-      <div className="h-10 bg-[#0B0F17] border-b border-slate-800 px-3 flex items-center justify-between text-xs text-slate-300 shrink-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
+      <div className="h-10 bg-[#0B0F17] border-b border-slate-800 px-3 flex items-center justify-between text-xs text-slate-300 shrink-0 overflow-x-auto min-w-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Herramientas Principales */}
           <button
             type="button"
-            title="Dividir clip en el cabezal de reproducción (Atajo: S o C)"
+            disabled={isSelectedClipTrackLocked}
+            title={isSelectedClipTrackLocked ? "Pista bloqueada: no se puede dividir clip" : "Dividir clip en el cabezal de reproducción (Atajo: S o C)"}
             onClick={() => splitClipAtPlayhead()}
-            className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors border border-slate-700 shadow-xs"
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 hover:text-white transition-colors border border-slate-700 shadow-xs"
           >
             <Scissors className="w-3.5 h-3.5 text-blue-400" />
             <span className="text-[11px] font-medium">Dividir (S)</span>
@@ -289,8 +296,8 @@ export const Timeline: React.FC = () => {
 
           <button
             type="button"
-            disabled={!selectedClipId}
-            title="Duplicar clip seleccionado (Atajo: Ctrl+D)"
+            disabled={!selectedClipId || isSelectedClipTrackLocked}
+            title={isSelectedClipTrackLocked ? "Pista bloqueada: no se puede duplicar clip" : "Duplicar clip seleccionado (Atajo: Ctrl+D)"}
             onClick={() => selectedClipId && duplicateClip(selectedClipId)}
             className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 transition-colors border border-slate-700 shadow-xs"
           >
@@ -301,9 +308,10 @@ export const Timeline: React.FC = () => {
           {activeSelectedClip && (
             <button
               type="button"
-              title="Separar canal de audio del clip de vídeo"
+              disabled={isSelectedClipTrackLocked}
+              title={isSelectedClipTrackLocked ? "Pista bloqueada" : "Separar canal de audio del clip de vídeo"}
               onClick={() => separateAudioFromVideo(activeSelectedClip.id)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700 shadow-xs"
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 transition-colors border border-slate-700 shadow-xs"
             >
               <Unlink className="w-3.5 h-3.5 text-amber-400" />
               <span className="text-[11px] font-medium">Separar Audio</span>
@@ -312,8 +320,8 @@ export const Timeline: React.FC = () => {
 
           <button
             type="button"
-            disabled={!selectedClipId}
-            title="Eliminar clip seleccionado (Atajo: Supr / Delete)"
+            disabled={!selectedClipId || isSelectedClipTrackLocked}
+            title={isSelectedClipTrackLocked ? "Pista bloqueada: no se puede eliminar clip" : "Eliminar clip seleccionado (Atajo: Supr / Delete)"}
             onClick={() => selectedClipId && removeClip(selectedClipId)}
             className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-red-950/60 hover:text-red-300 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-colors border border-slate-700 shadow-xs"
           >
@@ -436,7 +444,7 @@ export const Timeline: React.FC = () => {
       {/* Main Workspace */}
       <div className="flex-1 flex overflow-hidden">
         {/* Track Headers (Left sidebar) */}
-        <div className="w-52 bg-[#0B0F17] border-r border-slate-800 flex flex-col shrink-0">
+        <div className="w-60 bg-[#0B0F17] border-r border-slate-800 flex flex-col shrink-0">
           <div className="h-7 border-b border-slate-800 bg-slate-950/60 px-3 flex items-center justify-between text-[10px] text-slate-400 font-medium">
             <span>Pistas ({project.tracks.length})</span>
             <span className="text-[9px] text-slate-500 font-mono">{frameRate} fps</span>
@@ -445,54 +453,92 @@ export const Timeline: React.FC = () => {
           <div className="flex-1 overflow-y-auto divide-y divide-slate-800/60">
             {project.tracks.map((track) => {
               const isTargetTrack = activeDrag?.targetTrackId === track.id;
+              const isLocked = track.isLocked;
               return (
                 <div 
                   key={track.id} 
-                  className={`h-16 px-3 flex items-center justify-between text-xs transition-colors group ${
-                    isTargetTrack ? 'bg-blue-950/50 border-l-2 border-blue-400' : 'bg-slate-900/40 hover:bg-slate-900/70'
+                  className={`h-16 px-2.5 py-1.5 flex flex-col justify-between text-xs transition-colors group ${
+                    isTargetTrack 
+                      ? 'bg-blue-950/50 border-l-2 border-blue-400' 
+                      : isLocked 
+                      ? 'bg-amber-950/20' 
+                      : 'bg-slate-900/40 hover:bg-slate-900/70'
                   }`}
                 >
-                  <div className="min-w-0 pr-2 flex items-center gap-1.5">
-                    {track.type === 'video' ? (
-                      <Video className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                    ) : (
-                      <Music className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    )}
-                    <div>
-                      <div className="font-semibold text-slate-200 truncate text-[11px]">{track.name}</div>
-                      <div className="text-[9px] text-slate-500 capitalize">{track.type} • {track.clips.length} clip(s)</div>
+                  {/* Fila 1: Nombre + Tipo + Indicador de Bloqueo */}
+                  <div className="flex items-center justify-between min-w-0 gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {track.type === 'video' ? (
+                        <Video className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                      ) : (
+                        <Music className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      )}
+                      <span className="font-semibold text-slate-200 truncate text-[11px]" title={track.name}>
+                        {track.name}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isLocked && (
+                        <span className="px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[9px] font-mono border border-amber-500/30">
+                          Bloq
+                        </span>
+                      )}
+                      <span className="text-[9px] text-slate-500 font-mono">
+                        {track.clips.length} clip{track.clips.length !== 1 ? 's' : ''}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Controles de pista: Mute, Lock, Visibility, Delete */}
-                  <div className="flex items-center gap-1 text-slate-400">
-                    <button
-                      type="button"
-                      onClick={() => toggleTrackVisibility(track.id)}
-                      title={track.isVisible === false ? 'Pista oculta (clic para mostrar)' : 'Pista visible (clic para ocultar)'}
-                      className={`p-1 rounded hover:bg-slate-800 transition-colors ${track.isVisible === false ? 'text-amber-400' : 'text-slate-400'}`}
-                    >
-                      {track.isVisible === false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                    </button>
+                  {/* Fila 2: Barra de herramientas de pista (Visibilidad, Mute, Solo, Lock, Delete) */}
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-800/40">
+                    <div className="flex items-center gap-1 text-slate-400">
+                      {/* Visibilidad */}
+                      <button
+                        type="button"
+                        onClick={() => toggleTrackVisibility(track.id)}
+                        title={track.isVisible === false ? 'Pista oculta (clic para mostrar)' : 'Pista visible (clic para ocultar)'}
+                        className={`p-1 rounded transition-colors ${track.isVisible === false ? 'text-amber-400 bg-amber-500/10' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                      >
+                        {track.isVisible === false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => toggleTrackMute(track.id)}
-                      title={track.isMuted ? 'Pista silenciada' : 'Pista activa'}
-                      className={`p-1 rounded hover:bg-slate-800 transition-colors ${track.isMuted ? 'text-red-400' : 'text-slate-400'}`}
-                    >
-                      {track.isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-                    </button>
+                      {/* Silenciar (Mute) */}
+                      <button
+                        type="button"
+                        onClick={() => toggleTrackMute(track.id)}
+                        title={track.isMuted ? 'Pista silenciada (clic para activar audio)' : 'Pista con audio (clic para silenciar)'}
+                        className={`p-1 rounded transition-colors ${track.isMuted ? 'text-red-400 bg-red-500/10 font-bold' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                      >
+                        {track.isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => toggleTrackLock(track.id)}
-                      title={track.isLocked ? 'Pista bloqueada' : 'Pista desbloqueada'}
-                      className={`p-1 rounded hover:bg-slate-800 transition-colors ${track.isLocked ? 'text-amber-400' : 'text-slate-400'}`}
-                    >
-                      {track.isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-                    </button>
+                      {/* Solo */}
+                      <button
+                        type="button"
+                        onClick={() => toggleTrackSolo(track.id)}
+                        title={track.isSolo ? 'Solo activo en esta pista' : 'Activar Solo en esta pista'}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold font-mono transition-colors ${
+                          track.isSolo 
+                            ? 'bg-amber-500 text-black shadow-xs' 
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                        }`}
+                      >
+                        S
+                      </button>
 
+                      {/* Bloqueo */}
+                      <button
+                        type="button"
+                        onClick={() => toggleTrackLock(track.id)}
+                        title={track.isLocked ? 'Pista bloqueada (clic para desbloquear)' : 'Pista desbloqueada (clic para bloquear)'}
+                        className={`p-1 rounded transition-colors ${track.isLocked ? 'text-amber-400 bg-amber-500/10' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                      >
+                        {track.isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                      </button>
+                    </div>
+
+                    {/* Eliminar pista */}
                     {project.tracks.length > 1 && (
                       <button
                         type="button"
@@ -552,12 +598,14 @@ export const Timeline: React.FC = () => {
                 key={track.id} 
                 data-track-id={track.id}
                 onDragOver={(e) => {
+                  if (track.isLocked) return;
                   if (e.dataTransfer.types.includes('application/kyvora-asset-id')) {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'copy';
                   }
                 }}
                 onDrop={(e) => {
+                  if (track.isLocked) return;
                   const assetId = e.dataTransfer.getData('application/kyvora-asset-id');
                   if (assetId) {
                     e.preventDefault();
