@@ -76,12 +76,12 @@ echo.
 :LAUNCH_APP
 echo.
 echo =====================================================================
-echo Iniciando Vite DevServer y compilando ventana de escritorio Tauri...
+echo Iniciando Vite DevServer y abriendo ventana de escritorio Tauri...
 echo Presione Ctrl+C en esta terminal cuando desee detener la aplicacion.
 echo =====================================================================
 echo.
 
-call pnpm run tauri:dev
+call pnpm run dev:desktop
 if errorlevel 1 goto DEV_FAIL
 goto SUCCESS_EXIT
 

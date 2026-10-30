@@ -5,7 +5,10 @@
   "packageManager": "pnpm@12.11.2",
   "scripts": {
     "dev:web": "pnpm --filter @kyvora/web dev",
-    "dev:desktop": "pnpm --filter @kyvora/desktop dev",
+    "dev:desktop": "node scripts/launch-desktop.mjs",
+    "desktop": "node scripts/launch-desktop.mjs",
+    "start:desktop": "node scripts/launch-desktop.mjs",
+    "dev:desktop:server": "pnpm --filter @kyvora/desktop dev",
     "tauri:dev": "pnpm --filter @kyvora/desktop tauri:dev",
     "tauri:build": "pnpm --filter @kyvora/desktop tauri:build",
     "build:web": "pnpm --filter @kyvora/web build",

@@ -118,8 +118,8 @@ export const RESOLUTION_PRESETS: Record<ExportResolution, { width: number; heigh
 export const QUALITY_CRF: Record<ExportQuality, { crf: number; preset: string; audioBitrate: string }> = {
   'low': { crf: 28, preset: 'faster', audioBitrate: '128k' },
   'medium': { crf: 23, preset: 'medium', audioBitrate: '192k' },
-  'high': { crf: 18, preset: 'slow', audioBitrate: '256k' },
-  'ultra': { crf: 14, preset: 'slower', audioBitrate: '320k' }
+  'high': { crf: 18, preset: 'medium', audioBitrate: '256k' },
+  'ultra': { crf: 14, preset: 'medium', audioBitrate: '320k' }
 };
 
 function escapeDrawText(text: string): string {
@@ -301,9 +301,9 @@ export function generateRenderPlan(
   const targetH = settings.height % 2 !== 0 ? settings.height - 1 : settings.height;
   const targetFps = settings.fps;
 
-  // Fondo base negro sólido de la resolución y FPS del proyecto
+  // Fondo base negro sólido de la resolución y FPS del proyecto en formato YUV420P estándar
   filterChains.push(
-    `color=c=black:s=${targetW}x${targetH}:r=${targetFps}:d=${project.durationSeconds}[base_video]`
+    `color=c=black:s=${targetW}x${targetH}:r=${targetFps}:d=${project.durationSeconds},format=yuv420p[base_video]`
   );
 
   let currentVideoOutput = 'base_video';
@@ -325,7 +325,7 @@ export function generateRenderPlan(
     filterChains.push(chain);
 
     // B. Transformaciones y efectos de video
-    let postFilter = `[${trimTag}]scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease,pad=${targetW}:${targetH}:(ow-iw)/2:(oh-ih)/2,fps=${targetFps}`;
+    let postFilter = `[${trimTag}]scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease,pad=${targetW}:${targetH}:(ow-iw)/2:(oh-ih)/2,format=yuv420p,fps=${targetFps}`;
 
     // Velocidad y reversa
     if (seg.playbackSpeed !== 1.0) {
@@ -558,6 +558,7 @@ export function generateRenderPlan(
   ffmpegArgs.push(
     '-c:a', acodec,
     '-b:a', qualityParams.audioBitrate,
+    '-threads', '2',
     '-t', project.durationSeconds.toString(),
     settings.outputPath
   );

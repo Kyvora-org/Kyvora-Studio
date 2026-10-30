@@ -314,6 +314,7 @@ describe('Motor de Vista Previa y Exportación de Kyvora Studio', () => {
       });
 
       const outPathA = path.resolve('scratch/output_export_a_720p_30fps.mp4').replace(/\\/g, '/');
+      if (fs.existsSync(outPathA)) fs.unlinkSync(outPathA);
       const planA = generateRenderPlan(withClipA, {
         resolutionPreset: '720p',
         width: 1280,
@@ -325,7 +326,7 @@ describe('Motor de Vista Previa y Exportación de Kyvora Studio', () => {
         outputPath: outPathA
       });
 
-      execFileSync('ffmpeg', planA.ffmpegArgs, { stdio: 'pipe' });
+      execFileSync('ffmpeg', planA.ffmpegArgs, { stdio: 'ignore' });
       expect(fs.existsSync(outPathA)).toBe(true);
 
       const probeA = execSync(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate,codec_name -of default=noprint_wrappers=1 "${outPathA}"`).toString();
@@ -355,6 +356,7 @@ describe('Motor de Vista Previa y Exportación de Kyvora Studio', () => {
       });
 
       const outPathB = path.resolve('scratch/output_export_b_1080p_60fps.mp4').replace(/\\/g, '/');
+      if (fs.existsSync(outPathB)) fs.unlinkSync(outPathB);
       const planB = generateRenderPlan(withClipB, {
         resolutionPreset: '1080p',
         width: 1920,
@@ -366,7 +368,7 @@ describe('Motor de Vista Previa y Exportación de Kyvora Studio', () => {
         outputPath: outPathB
       });
 
-      execFileSync('ffmpeg', planB.ffmpegArgs, { stdio: 'pipe' });
+      execFileSync('ffmpeg', planB.ffmpegArgs, { stdio: 'ignore' });
       expect(fs.existsSync(outPathB)).toBe(true);
 
       const probeB = execSync(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate,codec_name -of default=noprint_wrappers=1 "${outPathB}"`).toString();
