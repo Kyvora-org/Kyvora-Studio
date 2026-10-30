@@ -3,7 +3,7 @@ mod export_engine;
 mod dialog_commands;
 
 use media_probe::{probe_media_file, generate_media_thumbnail};
-use export_engine::{execute_ffmpeg_export, cancel_export_task, append_export_log, get_export_log_location};
+use export_engine::{execute_ffmpeg_export, cancel_export_task, append_export_log, get_export_log_location, get_export_progress};
 use dialog_commands::{
     pick_project_save_path, 
     pick_project_open_path, 
@@ -36,6 +36,7 @@ pub fn run() {
             cancel_export_task,
             append_export_log,
             get_export_log_location,
+            get_export_progress,
             pick_project_save_path,
             pick_project_open_path,
             pick_export_save_path,

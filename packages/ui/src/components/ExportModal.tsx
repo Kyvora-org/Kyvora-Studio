@@ -8,7 +8,8 @@ import {
   AudioCodec, 
   RESOLUTION_PRESETS,
   WebExportAdapter,
-  defaultWebMediaRepository
+  defaultWebMediaRepository,
+  getTimelineContentDuration
 } from '@kyvora/editor-core';
 import { 
   Download, 
@@ -75,6 +76,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
   const [logEvents, setLogEvents] = useState<Array<{ stage: string; message: string; timestamp: string }>>([]);
   const [showLogs, setShowLogs] = useState(false);
 
+  const effectiveContentDuration = React.useMemo(() => {
+    return getTimelineContentDuration(project);
+  }, [project]);
+
+  const pollTimerRef = React.useRef<any>(null);
+
   if (!isOpen) return null;
 
   const appendLog = (stage: string, message: string) => {
@@ -122,7 +129,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
       return;
     }
 
-    appendLog('timeline_validated', `Validada: ${project.tracks.length} pistas, ${totalClips} clips, ${project.durationSeconds.toFixed(2)}s`);
+    appendLog('timeline_validated', `Validada: ${project.tracks.length} pistas, ${totalClips} clips, duración efectiva: ${effectiveContentDuration.toFixed(2)}s`);
 
     // 2. Comprobar / solicitar ruta de salida
     let targetPath = outputPath.trim();
@@ -171,28 +178,54 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
         try {
           const tauriApi = (window as any).__TAURI__;
           const listenFn = tauriApi?.event?.listen;
+
           if (typeof listenFn === 'function') {
             let lastStatusUpdate = 0;
             unlistenProgress = await listenFn('export-progress', (event: any) => {
               const payload = event.payload;
               if (payload) {
-                if (payload.percentage !== undefined) {
+                if (payload.percentage !== undefined && payload.percentage >= 0) {
                   setProgressPct(Math.round(payload.percentage));
                 }
                 const now = Date.now();
-                if (now - lastStatusUpdate >= 250 || payload.is_completed) {
+                if (now - lastStatusUpdate >= 150 || payload.is_completed) {
                   lastStatusUpdate = now;
                   const fpsText = payload.fps ? `${payload.fps.toFixed(1)} fps` : '';
                   const speedText = payload.speed ? `(${payload.speed})` : '';
-                  const timeText = payload.current_time_seconds !== undefined ? `${payload.current_time_seconds.toFixed(1)}s / ${payload.total_duration_seconds?.toFixed(1)}s` : '';
+                  const timeText = payload.current_time_seconds !== undefined 
+                    ? `${payload.current_time_seconds.toFixed(1)}s / ${(payload.total_duration_seconds || effectiveContentDuration).toFixed(1)}s` 
+                    : '';
                   setProgressStatus(`Codificando: ${timeText} ${fpsText} ${speedText}`);
                 }
               }
             });
           }
-        } catch {
-          // Event fallback
+        } catch (e) {
+          console.warn('Listener de export-progress no disponible:', e);
         }
+
+        // Configurar sondeo periódico (polling) de progreso como salvaguarda
+        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+        pollTimerRef.current = setInterval(async () => {
+          try {
+            const prog = await invokeFn('get_export_progress');
+            if (prog && typeof prog === 'object') {
+              if (prog.percentage !== undefined && prog.percentage >= 0) {
+                setProgressPct(Math.round(prog.percentage));
+              }
+              const fpsText = prog.fps ? `${prog.fps.toFixed(1)} fps` : '';
+              const speedText = prog.speed ? `(${prog.speed})` : '';
+              const timeText = prog.current_time_seconds !== undefined && (prog.total_duration_seconds || effectiveContentDuration)
+                ? `${prog.current_time_seconds.toFixed(1)}s / ${(prog.total_duration_seconds || effectiveContentDuration).toFixed(1)}s`
+                : '';
+              if (timeText || fpsText) {
+                setProgressStatus(`Codificando: ${timeText} ${fpsText} ${speedText}`);
+              }
+            }
+          } catch {
+            // Ignorar errores puntuales de sondeo
+          }
+        }, 150);
 
         appendLog('ffmpeg_resolved', 'FFmpeg detectado y verificado en el sistema.');
 
@@ -249,10 +282,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
         const res = await invokeFn('execute_ffmpeg_export', {
           request: {
             output_path: targetPath,
-            duration_seconds: project.durationSeconds,
+            duration_seconds: plan.durationSeconds,
             ffmpeg_args: plan.ffmpegArgs
           }
         });
+
+        if (pollTimerRef.current) {
+          clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+        }
 
         // Limpiar archivos temporales de staging
         invokeFn('cleanup_temp_media_files').catch(() => {});
@@ -293,11 +331,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
       setExportError(msg);
       appendLog('export_failed', msg);
     } finally {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
       setIsExporting(false);
     }
   };
 
   const handleCancel = () => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
     if (webAdapter) {
       webAdapter.cancel();
     }
@@ -538,7 +584,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
         {/* Footer Actions */}
         <div className="h-14 px-4 bg-slate-950/60 border-t border-slate-800 flex items-center justify-between">
           <div className="text-[10px] text-slate-500">
-            Duración: {project.durationSeconds.toFixed(1)}s • MP4 H.264
+            Duración de exportación: {effectiveContentDuration.toFixed(1)}s • {vcodec.toUpperCase()} {acodec.toUpperCase()}
           </div>
 
           <div className="flex items-center gap-2">

@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use std::time::Instant;
 use tauri::Emitter;
 
@@ -27,6 +28,9 @@ pub struct ExportTaskRequest {
 
 // Global cancellation flag for active export job
 static IS_EXPORT_CANCELLED: AtomicBool = AtomicBool::new(false);
+
+// Global atomic progress cache for fast query/polling from UI
+static LAST_PROGRESS: Mutex<Option<ExportJobProgress>> = Mutex::new(None);
 
 fn get_export_log_path() -> PathBuf {
     if let Ok(app_data) = std::env::var("APPDATA") {
@@ -53,6 +57,18 @@ pub fn append_export_log_disk(stage: &str, message: &str) {
 pub fn cancel_export_task() -> bool {
     IS_EXPORT_CANCELLED.store(true, Ordering::SeqCst);
     append_export_log_disk("CANCEL_REQUESTED", "Export task cancellation requested by user");
+    let cancelled = ExportJobProgress {
+        percentage: 0.0,
+        current_time_seconds: 0.0,
+        total_duration_seconds: 0.0,
+        fps: 0.0,
+        speed: "0x".to_string(),
+        is_completed: false,
+        error: Some("Exportación cancelada por el usuario".to_string()),
+    };
+    if let Ok(mut lock) = LAST_PROGRESS.lock() {
+        *lock = Some(cancelled);
+    }
     true
 }
 
@@ -68,11 +84,19 @@ pub fn get_export_log_location() -> String {
 }
 
 #[tauri::command]
+pub fn get_export_progress() -> Option<ExportJobProgress> {
+    LAST_PROGRESS.lock().ok().and_then(|p| p.clone())
+}
+
+#[tauri::command]
 pub async fn execute_ffmpeg_export(
     app_handle: tauri::AppHandle,
     request: ExportTaskRequest,
 ) -> Result<String, String> {
     IS_EXPORT_CANCELLED.store(false, Ordering::SeqCst);
+    if let Ok(mut lock) = LAST_PROGRESS.lock() {
+        *lock = None;
+    }
 
     let log_path_str = get_export_log_path().to_string_lossy().to_string();
     append_export_log_disk("EXPORT_START", &format!("Iniciando exportación hacia: '{}'. Duración: {:.2}s. Log: {}", request.output_path, request.duration_seconds, log_path_str));
@@ -114,7 +138,7 @@ pub async fn execute_ffmpeg_export(
             }
         };
 
-        let stderr = match child.stderr.take() {
+        let mut stderr = match child.stderr.take() {
             Some(s) => s,
             None => {
                 let err = "No se pudo conectar con el flujo de diagnóstico de FFmpeg".to_string();
@@ -123,63 +147,87 @@ pub async fn execute_ffmpeg_export(
             }
         };
 
-        let reader = BufReader::new(stderr);
         let mut stderr_lines: Vec<String> = Vec::new();
         let mut last_emit_time = Instant::now();
         let mut last_percentage: f32 = -1.0;
+        let mut raw_buf = [0u8; 2048];
+        let mut pending = String::new();
 
-        for line in reader.lines() {
+        loop {
             if IS_EXPORT_CANCELLED.load(Ordering::SeqCst) {
                 let _ = child.kill();
                 let _ = child.wait();
                 append_export_log_disk("CANCELLED", "Subproceso FFmpeg terminado por cancelación.");
-                let _ = app_handle.emit(
-                    "export-progress",
-                    ExportJobProgress {
-                        percentage: 0.0,
-                        current_time_seconds: 0.0,
-                        total_duration_seconds: duration,
-                        fps: 0.0,
-                        speed: "0x".to_string(),
-                        is_completed: false,
-                        error: Some("Exportación cancelada por el usuario".to_string()),
-                    },
-                );
+                let cancelled = ExportJobProgress {
+                    percentage: 0.0,
+                    current_time_seconds: 0.0,
+                    total_duration_seconds: duration,
+                    fps: 0.0,
+                    speed: "0x".to_string(),
+                    is_completed: false,
+                    error: Some("Exportación cancelada por el usuario".to_string()),
+                };
+                if let Ok(mut lock) = LAST_PROGRESS.lock() {
+                    *lock = Some(cancelled.clone());
+                }
+                let _ = app_handle.emit("export-progress", cancelled);
                 return Err("Exportación cancelada por el usuario".to_string());
             }
 
-            if let Ok(l) = line {
-                if stderr_lines.len() >= 60 {
-                    stderr_lines.remove(0);
+            let bytes_read = match stderr.read(&mut raw_buf) {
+                Ok(0) => break, // EOF reached
+                Ok(n) => n,
+                Err(e) => {
+                    append_export_log_disk("STDERR_READ_ERR", &format!("Error leyendo flujo stderr: {}", e));
+                    break;
                 }
-                stderr_lines.push(l.clone());
+            };
 
-                if l.contains("time=") {
-                    let current_sec = parse_time_from_ffmpeg_line(&l);
-                    let percentage = if duration > 0.0 {
-                        ((current_sec / duration) * 100.0).clamp(0.0, 99.0) as f32
-                    } else {
-                        50.0
-                    };
+            let chunk = String::from_utf8_lossy(&raw_buf[..bytes_read]);
+            pending.push_str(&chunk);
 
-                    let now = Instant::now();
-                    // Throttle IPC events to at most once every 250ms or when percentage increases by >= 1%
-                    if now.duration_since(last_emit_time).as_millis() >= 250 || (percentage - last_percentage) >= 1.0 {
-                        last_emit_time = now;
-                        last_percentage = percentage;
+            // FFmpeg escribe marcas de progreso terminadas en '\r' en tiempo real
+            // Por ende dividimos sobre '\r' o '\n' para capturar cada actualización sin esperar fin de línea '\n'
+            while let Some(idx) = pending.find(|c: char| c == '\r' || c == '\n') {
+                let line = pending[..idx].trim().to_string();
+                pending = pending[idx + 1..].to_string();
 
-                        let _ = app_handle.emit(
-                            "export-progress",
-                            ExportJobProgress {
+                if !line.is_empty() {
+                    if stderr_lines.len() >= 60 {
+                        stderr_lines.remove(0);
+                    }
+                    stderr_lines.push(line.clone());
+
+                    let has_time = line.contains("time=") || line.contains("out_time");
+                    if has_time {
+                        let current_sec = parse_time_from_ffmpeg_line(&line);
+                        let percentage = if duration > 0.0 {
+                            ((current_sec / duration) * 100.0).clamp(0.0, 99.0) as f32
+                        } else {
+                            50.0
+                        };
+
+                        let now = Instant::now();
+                        // Actualizar eventos a intervalos de 150ms o cuando incremente al menos 0.5%
+                        if now.duration_since(last_emit_time).as_millis() >= 150 || (percentage - last_percentage) >= 0.5 {
+                            last_emit_time = now;
+                            last_percentage = percentage;
+
+                            let progress_data = ExportJobProgress {
                                 percentage,
                                 current_time_seconds: current_sec,
                                 total_duration_seconds: duration,
-                                fps: parse_fps_from_ffmpeg_line(&l),
-                                speed: parse_speed_from_ffmpeg_line(&l),
+                                fps: parse_fps_from_ffmpeg_line(&line),
+                                speed: parse_speed_from_ffmpeg_line(&line),
                                 is_completed: false,
                                 error: None,
-                            },
-                        );
+                            };
+
+                            if let Ok(mut lock) = LAST_PROGRESS.lock() {
+                                *lock = Some(progress_data.clone());
+                            }
+                            let _ = app_handle.emit("export-progress", progress_data);
+                        }
                     }
                 }
             }
@@ -231,18 +279,19 @@ pub async fn execute_ffmpeg_export(
             return Err(err);
         }
 
-        let _ = app_handle.emit(
-            "export-progress",
-            ExportJobProgress {
-                percentage: 100.0,
-                current_time_seconds: duration,
-                total_duration_seconds: duration,
-                fps: 0.0,
-                speed: "1x".to_string(),
-                is_completed: true,
-                error: None,
-            },
-        );
+        let final_progress = ExportJobProgress {
+            percentage: 100.0,
+            current_time_seconds: duration,
+            total_duration_seconds: duration,
+            fps: 0.0,
+            speed: "1x".to_string(),
+            is_completed: true,
+            error: None,
+        };
+        if let Ok(mut lock) = LAST_PROGRESS.lock() {
+            *lock = Some(final_progress.clone());
+        }
+        let _ = app_handle.emit("export-progress", final_progress);
 
         let success_msg = format!(
             "Archivo exportado exitosamente en: {} ({:.2} MB)",
@@ -262,15 +311,36 @@ pub async fn execute_ffmpeg_export(
 }
 
 fn parse_time_from_ffmpeg_line(line: &str) -> f64 {
-    if let Some(pos) = line.find("time=") {
-        let after = &line[pos + 5..];
-        let token = after.split_whitespace().next().unwrap_or("");
-        let parts: Vec<&str> = token.split(':').collect();
-        if parts.len() == 3 {
-            let h = parts[0].parse::<f64>().unwrap_or(0.0);
-            let m = parts[1].parse::<f64>().unwrap_or(0.0);
-            let s = parts[2].parse::<f64>().unwrap_or(0.0);
-            return (h * 3600.0) + (m * 60.0) + s;
+    if let Some(pos) = line.find("out_time_us=") {
+        if let Ok(us) = line[pos + 12..].trim().parse::<f64>() {
+            return us / 1_000_000.0;
+        }
+    }
+    if let Some(pos) = line.find("out_time_ms=") {
+        if let Ok(ms) = line[pos + 12..].trim().parse::<f64>() {
+            return ms / 1_000.0;
+        }
+    }
+
+    let search_key = if line.contains("out_time=") {
+        "out_time="
+    } else if line.contains("time=") {
+        "time="
+    } else {
+        ""
+    };
+
+    if !search_key.is_empty() {
+        if let Some(pos) = line.find(search_key) {
+            let after = &line[pos + search_key.len()..];
+            let token = after.split_whitespace().next().unwrap_or("");
+            let parts: Vec<&str> = token.split(':').collect();
+            if parts.len() == 3 {
+                let h = parts[0].parse::<f64>().unwrap_or(0.0);
+                let m = parts[1].parse::<f64>().unwrap_or(0.0);
+                let s = parts[2].parse::<f64>().unwrap_or(0.0);
+                return (h * 3600.0) + (m * 60.0) + s;
+            }
         }
     }
     0.0
@@ -278,7 +348,7 @@ fn parse_time_from_ffmpeg_line(line: &str) -> f64 {
 
 fn parse_fps_from_ffmpeg_line(line: &str) -> f32 {
     if let Some(pos) = line.find("fps=") {
-        let after = &line[pos + 4..];
+        let after = line[pos + 4..].trim_start();
         let token = after.split_whitespace().next().unwrap_or("0");
         return token.parse::<f32>().unwrap_or(0.0);
     }
@@ -287,10 +357,9 @@ fn parse_fps_from_ffmpeg_line(line: &str) -> f32 {
 
 fn parse_speed_from_ffmpeg_line(line: &str) -> String {
     if let Some(pos) = line.find("speed=") {
-        let after = &line[pos + 6..];
+        let after = line[pos + 6..].trim_start();
         let token = after.split_whitespace().next().unwrap_or("1x");
         return token.to_string();
     }
     "1x".to_string()
 }
-

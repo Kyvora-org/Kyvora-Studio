@@ -3,6 +3,7 @@ import {
   createNewProject, 
   immutableAddClip, 
   generateRenderPlan, 
+  getTimelineContentDuration,
   ExportSettings,
   PreviewEngine,
   WebExportAdapter 
@@ -142,6 +143,51 @@ describe('Motor de Vista Previa y Exportación de Kyvora Studio', () => {
       const plan = generateRenderPlan(project, settings);
       expect(plan.ffmpegFilterComplex).toContain('anullsrc');
       expect(plan.ffmpegFilterComplex).toContain('final_audio');
+    });
+
+    it('calcula la duración efectiva de exportación según el contenido real y no deja trailing de 120s', () => {
+      // Proyecto por defecto tiene 120s de duración de canvas
+      expect(project.durationSeconds).toBe(120);
+
+      project.assets.push({
+        id: 'asset_short',
+        name: 'intro.mp4',
+        type: 'video',
+        durationInSeconds: 15,
+        filePath: 'C:/Videos/intro.mp4',
+        createdAt: new Date().toISOString()
+      });
+
+      // Añadimos un clip que dura 12.5s colocado en el segundo 2 (termina en 14.5s)
+      const projectWithClip = immutableAddClip(project, project.tracks[0].id, {
+        assetId: 'asset_short',
+        name: 'Intro 14.5s',
+        startInTimelineSeconds: 2,
+        durationSeconds: 12.5,
+        sourceStartSeconds: 0,
+        effects: []
+      });
+
+      const effectiveDuration = getTimelineContentDuration(projectWithClip);
+      expect(effectiveDuration).toBe(14.5);
+
+      const plan = generateRenderPlan(projectWithClip, {
+        resolutionPreset: '1080p',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        quality: 'high',
+        videoCodec: 'h264',
+        audioCodec: 'aac',
+        outputPath: 'C:/Export/intro_final.mp4'
+      });
+
+      // La duración en el plan debe ser exactamente 14.5 y no 120
+      expect(plan.durationSeconds).toBe(14.5);
+      expect(plan.ffmpegArgs).toContain('-t');
+      const tIdx = plan.ffmpegArgs.indexOf('-t');
+      expect(plan.ffmpegArgs[tIdx + 1]).toBe('14.5');
+      expect(plan.ffmpegFilterComplex).toContain('d=14.5');
     });
   });
 

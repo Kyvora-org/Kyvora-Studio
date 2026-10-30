@@ -106,6 +106,27 @@ export interface RenderPlan {
   ffmpegArgs: string[];
 }
 
+/**
+ * Calcula la duración efectiva del contenido en la línea de tiempo.
+ * Recorre todas las pistas visibles y busca el punto de terminación del último clip.
+ * Si no hay clips en la línea de tiempo, recurre a la duración base configurada en el proyecto.
+ */
+export function getTimelineContentDuration(project: KyvoraProject): number {
+  let maxEnd = 0;
+  for (const track of project.tracks) {
+    if (track.isVisible === false) continue;
+    for (const clip of track.clips) {
+      const end = clip.startInTimelineSeconds + clip.durationSeconds;
+      if (end > maxEnd) {
+        maxEnd = end;
+      }
+    }
+  }
+  return maxEnd > 0 
+    ? Math.max(0.1, Number(maxEnd.toFixed(3))) 
+    : Math.max(0.1, project.durationSeconds || 1);
+}
+
 export const RESOLUTION_PRESETS: Record<ExportResolution, { width: number; height: number }> = {
   '480p': { width: 854, height: 480 },
   '720p': { width: 1280, height: 720 },
@@ -117,9 +138,9 @@ export const RESOLUTION_PRESETS: Record<ExportResolution, { width: number; heigh
 
 export const QUALITY_CRF: Record<ExportQuality, { crf: number; preset: string; audioBitrate: string }> = {
   'low': { crf: 28, preset: 'faster', audioBitrate: '128k' },
-  'medium': { crf: 23, preset: 'medium', audioBitrate: '192k' },
-  'high': { crf: 18, preset: 'medium', audioBitrate: '256k' },
-  'ultra': { crf: 14, preset: 'medium', audioBitrate: '320k' }
+  'medium': { crf: 23, preset: 'fast', audioBitrate: '192k' },
+  'high': { crf: 18, preset: 'veryfast', audioBitrate: '256k' },
+  'ultra': { crf: 14, preset: 'fast', audioBitrate: '320k' }
 };
 
 function escapeDrawText(text: string): string {
@@ -296,6 +317,7 @@ export function generateRenderPlan(
   audioSegments.sort((a, b) => a.startInTimelineSeconds - b.startInTimelineSeconds);
 
   // 3. Construir cadena de filtros complejos (filter_complex) de FFmpeg
+  const effectiveExportDuration = getTimelineContentDuration(project);
   const filterChains: string[] = [];
   const targetW = settings.width % 2 !== 0 ? settings.width - 1 : settings.width;
   const targetH = settings.height % 2 !== 0 ? settings.height - 1 : settings.height;
@@ -303,7 +325,7 @@ export function generateRenderPlan(
 
   // Fondo base negro sólido de la resolución y FPS del proyecto en formato YUV420P estándar
   filterChains.push(
-    `color=c=black:s=${targetW}x${targetH}:r=${targetFps}:d=${project.durationSeconds},format=yuv420p[base_video]`
+    `color=c=black:s=${targetW}x${targetH}:r=${targetFps}:d=${effectiveExportDuration},format=yuv420p[base_video]`
   );
 
   let currentVideoOutput = 'base_video';
@@ -506,7 +528,7 @@ export function generateRenderPlan(
   } else {
     // Si no hay audio, generar canal silencioso
     filterChains.push(
-      `anullsrc=channel_layout=stereo:sample_rate=48000:d=${project.durationSeconds}[final_audio]`
+      `anullsrc=channel_layout=stereo:sample_rate=48000:d=${effectiveExportDuration}[final_audio]`
     );
   }
 
@@ -559,14 +581,14 @@ export function generateRenderPlan(
     '-c:a', acodec,
     '-b:a', qualityParams.audioBitrate,
     '-threads', '2',
-    '-t', project.durationSeconds.toString(),
+    '-t', effectiveExportDuration.toString(),
     settings.outputPath
   );
 
   return {
     projectId: project.id,
     settings,
-    durationSeconds: project.durationSeconds,
+    durationSeconds: effectiveExportDuration,
     inputs,
     videoSegments,
     audioSegments,
